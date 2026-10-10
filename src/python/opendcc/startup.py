@@ -167,7 +167,7 @@ def init_ui():
 
     from opendcc.session_ui import subscribe_to_no_stage_signal
 
-    subscribe_to_no_stage_signal([menu_edit, menu_create, menu_modify])
+    #subscribe_to_no_stage_signal([menu_edit, menu_create, menu_modify])
 
     # menu Render and all its actions
     menu_render = menu_bar.addMenu(i18n("main_menu", "Render"))
