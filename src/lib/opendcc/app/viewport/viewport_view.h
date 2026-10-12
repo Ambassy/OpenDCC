@@ -58,6 +58,26 @@ public:
     QWidget* get_widget() const;
     /** @brief Capture the rendered viewport framebuffer. Requires a GUI thread and a valid GL context. */
     QImage grab_framebuffer() const;
+    /** @brief Set per-viewport color correction: "disabled", "sRGB", or "openColorIO". */
+    void set_color_mode(const std::string& mode);
+    /** @brief Return the per-viewport color correction mode. */
+    std::string get_color_mode() const;
+    /** @brief Select an OCIO view on the current configuration's default display. */
+    void set_ocio_view(const std::string& view);
+    /** @brief Return the selected OCIO view. */
+    std::string get_ocio_view() const;
+    /** @brief Set the input color space used by OCIO correction in this viewport. */
+    void set_input_color_space(const std::string& color_space);
+    /** @brief Return the viewport's OCIO input color space. */
+    std::string get_input_color_space() const;
+    /** @brief Set the display gamma applied after the OCIO view transform. */
+    void set_gamma(float gamma);
+    /** @brief Return the viewport's display gamma. */
+    float get_gamma() const;
+    /** @brief Set exposure in stops before the OCIO view transform. */
+    void set_exposure(float exposure);
+    /** @brief Return the viewport's exposure in stops. */
+    float get_exposure() const;
     void set_selected(const SelectionList& selection_list, const RichSelection& rich_selection = RichSelection());
     PXR_NS::TfToken get_scene_context_type() const;
     static PXR_NS::TfTokenVector get_render_plugins();

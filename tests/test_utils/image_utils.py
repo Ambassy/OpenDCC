@@ -8,11 +8,13 @@ import unittest
 import OpenImageIO as oiio
 from Qt import QtCore
 
+# PNG channels are normalized to [0, 1]; allow two 8-bit levels of rounding noise.
+PIXEL_TOLERANCE = 2 / 255
+
 
 def compare_images(before, after, roi=oiio.ROI.All):
-    # PNG channels are normalized to [0, 1]. Allow two 8-bit levels of rounding noise;
-    # use the same failure and warning thresholds because callers only inspect nfail.
-    return oiio.ImageBufAlgo.compare(before, after, 2 / 255, 2 / 255, roi=roi)
+    # Use the same failure and warning thresholds because callers only inspect nfail.
+    return oiio.ImageBufAlgo.compare(before, after, PIXEL_TOLERANCE, PIXEL_TOLERANCE, roi=roi)
 
 
 class ImageDiffingTestCase(unittest.TestCase):
