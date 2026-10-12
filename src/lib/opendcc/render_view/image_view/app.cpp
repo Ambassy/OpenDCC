@@ -26,7 +26,7 @@
 #include <QDir>
 #include <QUrl>
 
-#include <opendcc/base/vendor/ghc/filesystem.hpp>
+#include <filesystem>
 
 #include <deque>
 #include <locale>
@@ -858,8 +858,8 @@ void RenderViewMainWindow::update_status_label()
 
 void RenderViewMainWindow::clear_scratch_images()
 {
-    namespace fs = ghc::filesystem;
-    fs::path full_path(m_prefs.scratch_image_location.toStdString());
+    namespace fs = std::filesystem;
+    auto full_path = fs::u8path(m_prefs.scratch_image_location.toStdString());
 
     if (!fs::exists(full_path) || !fs::is_directory(full_path))
     {
@@ -873,7 +873,7 @@ void RenderViewMainWindow::clear_scratch_images()
         {
             continue;
         }
-        std::string filename = it->path().filename().string();
+        std::string filename = it->path().filename().u8string();
         std::regex expr("render_view.(\\d+).(\\d+).tif");
         if (std::regex_match(filename, expr))
         {

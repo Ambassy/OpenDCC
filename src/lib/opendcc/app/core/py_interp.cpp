@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "opendcc/app/core/py_interp.h"
-#include <opendcc/base/vendor/ghc/filesystem.hpp>
+#include <filesystem>
 #include <pxr/pxr.h>
 #include <pxr/base/tf/pyInterpreter.h>
 #include <pxr/base/tf/pyError.h>
@@ -178,7 +178,7 @@ void py_interp::init_py_interp(std::vector<std::string>& args)
 #endif
 
 #ifdef OPENDCC_OS_WINDOWS
-    TfPyRunSimpleString("import os;os.environ['PATH'] = \"" + ghc::filesystem::path(ArchGetExecutablePath()).parent_path().generic_string() +
+    TfPyRunSimpleString("import os;os.environ['PATH'] = \"" + std::filesystem::u8path(ArchGetExecutablePath()).parent_path().generic_u8string() +
                         "\" + os.pathsep + os.environ['PATH']");
 #endif
 
@@ -258,7 +258,7 @@ namespace
 
 int py_interp::run_script(const std::string& filepath)
 {
-    if (!ghc::filesystem::exists(filepath))
+    if (!std::filesystem::exists(std::filesystem::u8path(filepath)))
     {
         TF_CODING_ERROR("Could not open file '%s'!", filepath.c_str());
         return -1;

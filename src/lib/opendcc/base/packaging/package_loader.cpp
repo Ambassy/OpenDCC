@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "opendcc/base/packaging/package_loader.h"
-#include "opendcc/base/vendor/ghc/filesystem.hpp"
+#include <filesystem>
 #include "opendcc/base/logging/logger.h"
 #include "opendcc/base/pybind_bridge/pybind11.h"
 #if defined(OPENDCC_OS_WINDOWS)
@@ -24,12 +24,12 @@ OPENDCC_NAMESPACE_OPEN
 
 namespace
 {
-    ghc::filesystem::path make_absolute_path(const std::string& root, const std::string& path)
+    std::filesystem::path make_absolute_path(const std::string& root, const std::string& path)
     {
-        auto result = ghc::filesystem::path(path);
+        auto result = std::filesystem::u8path(path);
         if (result.is_relative())
         {
-            result = root / result;
+            result = std::filesystem::u8path(root) / result;
         }
         return result;
     }
@@ -152,7 +152,7 @@ bool PackageLoader::load(const std::string& pkg_name)
                         continue;
                     }
 
-                    const auto path = make_absolute_path(pkg_data->root_dir, env_val->Get<std::string>()).string();
+                    const auto path = make_absolute_path(pkg_data->root_dir, env_val->Get<std::string>()).u8string();
                     cur_env_var_value = path + OPENDCC_PATH_LIST_SEPARATOR + cur_env_var_value;
                 }
                 set_env(env_name, cur_env_var_value);
@@ -169,7 +169,7 @@ bool PackageLoader::load(const std::string& pkg_name)
                 continue;
             }
             auto path = make_absolute_path(pkg_data->root_dir, env_val->Get<std::string>());
-            if (!extend_python_path(path.lexically_normal().generic_string(), pkg_name, pkg_data->name))
+            if (!extend_python_path(path.lexically_normal().generic_u8string(), pkg_name, pkg_data->name))
             {
                 continue;
             }
@@ -357,23 +357,23 @@ bool PackageLoader::extend_python_path(const std::string& path, const std::strin
     {
         module_::import("sys").attr("path").attr("append")(path);
 #if PY_MAJOR_VERSION < 3
-        std::function<void(const ghc::filesystem::path&)> traverse = [&path, &traverse](const ghc::filesystem::path& root) {
-            for (const auto& dir_entry : ghc::filesystem::directory_iterator(root))
+        std::function<void(const std::filesystem::path&)> traverse = [&path, &traverse](const std::filesystem::path& root) {
+            for (const auto& dir_entry : std::filesystem::directory_iterator(root))
             {
                 if (!dir_entry.is_directory())
                 {
                     continue;
                 }
 
-                if (ghc::filesystem::exists(dir_entry / "__init__.py"))
+                if (std::filesystem::exists(dir_entry.path() / "__init__.py"))
                 {
                     const auto dir_path = dir_entry.path();
-                    auto rel_path = ghc::filesystem::relative(dir_entry, path).lexically_normal().generic_string();
+                    auto rel_path = std::filesystem::relative(dir_entry.path(), std::filesystem::u8path(path)).lexically_normal().generic_u8string();
                     std::replace(rel_path.begin(), rel_path.end(), '/', '.');
                     try
                     {
-                        import(rel_path.c_str()).attr("__path__").attr("append")(dir_path.generic_string());
-                        traverse(dir_entry);
+                        import(rel_path.c_str()).attr("__path__").attr("append")(dir_path.generic_u8string());
+                        traverse(dir_entry.path());
                     }
                     catch (const error_already_set& err)
                     {
@@ -382,7 +382,7 @@ bool PackageLoader::extend_python_path(const std::string& path, const std::strin
                 }
             }
         };
-        traverse(path);
+        traverse(std::filesystem::u8path(path));
 #endif
         return true;
     }
@@ -414,11 +414,11 @@ bool PackageLoader::load_cpp_libs(const std::shared_ptr<PackageSharedData>& pkg_
 
             const auto path = make_absolute_path(pkg_data->root_dir, it->second.Get<std::string>());
 
-            OPENDCC_INFO("Loading library '{}'...", path.string());
+            OPENDCC_INFO("Loading library '{}'...", path.u8string());
 #ifdef OPENDCC_OS_WINDOWS
-            if (auto handle = dl_open(path.string(), LOAD_WITH_ALTERED_SEARCH_PATH))
+            if (auto handle = dl_open(path.u8string(), LOAD_WITH_ALTERED_SEARCH_PATH))
 #else
-            if (auto handle = dl_open(path.string(), RTLD_NOW))
+            if (auto handle = dl_open(path.u8string(), RTLD_NOW))
 #endif
             {
                 if (col == native_entry_points)
@@ -428,7 +428,7 @@ bool PackageLoader::load_cpp_libs(const std::shared_ptr<PackageSharedData>& pkg_
                     {
                         OPENDCC_WARN(
                             "Failed to execute entry point declared in '{}': 'opendcc_package_entry_point' entry point is not defined, check usage of `OPENDCC_DEFINE_PACKAGE_ENTRY_POINT` macro.",
-                            path.string());
+                            path.u8string());
                         dl_close(handle);
                         continue;
                     }
@@ -446,7 +446,7 @@ bool PackageLoader::load_cpp_libs(const std::shared_ptr<PackageSharedData>& pkg_
                         }
                         catch (const std::exception& exception)
                         {
-                            OPENDCC_ERROR("Exception occurred during entry point initialization, defined in '{}': {}.", path.string(),
+                            OPENDCC_ERROR("Exception occurred during entry point initialization, defined in '{}': {}.", path.u8string(),
                                           exception.what());
                             native_entry_point->close();
                             continue;
@@ -455,7 +455,7 @@ bool PackageLoader::load_cpp_libs(const std::shared_ptr<PackageSharedData>& pkg_
                     else
                     {
                         OPENDCC_ERROR("Failed to create entry point declared in '{}': 'opendcc_package_entry_point' returned nullptr.",
-                                      path.string());
+                                      path.u8string());
                         dl_close(handle);
                         continue;
                     }
@@ -469,7 +469,7 @@ bool PackageLoader::load_cpp_libs(const std::shared_ptr<PackageSharedData>& pkg_
             }
             else
             {
-                OPENDCC_ERROR("Failed to load library '{}' for package '{}': {}.", path.string(), pkg_data->name, dl_error_str());
+                OPENDCC_ERROR("Failed to load library '{}' for package '{}': {}.", path.u8string(), pkg_data->name, dl_error_str());
                 continue;
             }
         }

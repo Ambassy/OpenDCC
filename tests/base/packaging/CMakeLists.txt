@@ -18,6 +18,15 @@ opendcc_add_cpp_test(
     SUITES
     PackagingTOMLParserTests)
 
+opendcc_add_cpp_test(
+    PackageRegistryTests
+    SOURCE
+    test_package_registry.cpp
+    TARGET
+    packaging
+    SUITES
+    PackagingPackageRegistry)
+
 opendcc_make_library(
     packaging_tests_a
     TYPE

@@ -19,7 +19,7 @@
 #include "opendcc/app/core/undo/router.h"
 #include "pxr/usd/usd/primRange.h"
 #include "pxr/usd/pcp/node.h"
-#include <opendcc/base/vendor/ghc/filesystem.hpp>
+#include <filesystem>
 #include <pxr/usd/sdf/fileFormat.h>
 #include <pxr/usd/sdf/copyUtils.h>
 
@@ -391,21 +391,21 @@ void commands::utils::flatten_prim(const PXR_NS::UsdPrim& src_prim, const PXR_NS
         }
         else
         {
-            namespace fs = ghc::filesystem;
+            namespace fs = std::filesystem;
             const auto& real_path = src_layer->GetRealPath();
-            const auto fs_path = fs::path(real_path);
+            const auto fs_path = fs::u8path(real_path);
             size_t counter = 0;
             while (!dst_layer)
             {
                 const auto tmp_file_name =
-                    fs_path.parent_path() / fs::path(fs_path.stem().string() + std::to_string(counter) + fs_path.extension().string());
+                    fs_path.parent_path() / fs::u8path(fs_path.stem().u8string() + std::to_string(counter) + fs_path.extension().u8string());
                 counter++;
 
-                const auto tmp_file_name_str = tmp_file_name.string();
+                const auto tmp_file_name_str = tmp_file_name.u8string();
                 auto test_tmp = SdfLayer::FindOrOpen(tmp_file_name_str);
                 if (test_tmp)
                     continue;
-                auto format = SdfFileFormat::FindByExtension(fs_path.extension().string());
+                auto format = SdfFileFormat::FindByExtension(fs_path.extension().u8string());
                 dst_layer = SdfLayer::New(format, tmp_file_name_str);
             }
         }

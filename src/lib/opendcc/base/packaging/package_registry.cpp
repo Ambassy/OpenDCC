@@ -4,7 +4,7 @@
 #include "opendcc/base/packaging/package_registry.h"
 #include <opendcc/base/logging/logger.h>
 #include "pxr/base/vt/array.h"
-#include "opendcc/base/vendor/ghc/filesystem.hpp"
+#include <filesystem>
 #include "pxr/base/tf/pyInterpreter.h"
 #include "opendcc/base/packaging/core_properties.h"
 #include "opendcc/base/packaging/filesystem_package_provider.h"
@@ -93,16 +93,16 @@ void PackageRegistry::initialize_package_data()
                     attributes.SetValueAtPath(resolved_name, resolved_value, ".");
                 }
             }
-            auto root_dir = ghc::filesystem::path(attributes.GetValueAtPath("base.root", ".")->Get<std::string>());
+            auto root_dir = std::filesystem::u8path(attributes.GetValueAtPath("base.root", ".")->Get<std::string>());
             if (root_dir.is_relative())
             {
-                root_dir = ghc::filesystem::path(pkg_data.path) / root_dir;
+                root_dir = std::filesystem::u8path(pkg_data.path) / root_dir;
             }
 
             const auto direct_dependencies = attributes.GetValueAtPath("dependencies", ".")->Get<VtDictionary>();
 
             auto data = std::make_shared<PackageSharedData>(
-                PackageSharedData { attributes, direct_dependencies, root_dir.lexically_normal().generic_string(), pkg_data.name });
+                PackageSharedData { attributes, direct_dependencies, root_dir.lexically_normal().generic_u8string(), pkg_data.name });
             m_package_shared_data[pkg_data.name] = data;
         }
     }

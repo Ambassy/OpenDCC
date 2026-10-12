@@ -12,7 +12,7 @@
 #include "opendcc/app/ui/logger/render_catalog.h"
 #include "opendcc/app/viewport/offscreen_render.h"
 
-#include <opendcc/base/vendor/ghc/filesystem.hpp>
+#include <filesystem>
 #include "opendcc/app/viewport/render_process.h"
 
 #include <QObject>
@@ -51,12 +51,12 @@ private:
 
     void update_render_cmd(const std::string& stage_path, const std::string& transfer_layer_cfg);
     void init_temp_dir();
-    ghc::filesystem::path write_transfer_layers() const;
+    std::filesystem::path write_transfer_layers() const;
     void create_render_catalog();
 
     QMetaObject::Connection m_connect;
     render_system::RenderAttributes m_attributes;
-    ghc::filesystem::path m_tmp_dir;
+    std::filesystem::path m_tmp_dir;
     std::unique_ptr<ViewportOffscreenRender> m_render;
     std::unique_ptr<display_driver_api::RenderViewConnection> m_render_view_connection;
     std::shared_ptr<ViewportRenderAOVs> m_processor;

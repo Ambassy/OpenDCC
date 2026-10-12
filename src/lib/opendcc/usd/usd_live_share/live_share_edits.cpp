@@ -9,7 +9,7 @@
 #include "opendcc/usd/usd_live_share/live_share_state_delegate.h"
 #include <queue>
 #include <chrono>
-#include <opendcc/base/vendor/ghc/filesystem.hpp>
+#include <filesystem>
 #include <pxr/base/js/json.h>
 #include <fstream>
 #include "opendcc/app/core/settings.h"
@@ -93,8 +93,8 @@ void ShareEditsContext::transfer_content()
     char content_path_str[255];
     CHECK_ZMQ_ERROR_AND_RETURN(zmq_recv(socket, content_path_str, sizeof(content_path_str), 0));
 
-    const ghc::filesystem::path transferred_content_path(content_path_str);
-    const auto config_path = (transferred_content_path / "usd_layer_transfer_content.json").string();
+    const auto transferred_content_path = std::filesystem::u8path(content_path_str);
+    const auto config_path = transferred_content_path / "usd_layer_transfer_content.json";
 
     auto input_stream = std::ifstream(config_path);
     if (!input_stream.is_open())
@@ -109,7 +109,7 @@ void ShareEditsContext::transfer_content()
         m_event_queue.enqueue(EventType::Work, [transferred_content_path, layer_id = layer_path.first, repath = layer_path.second]() {
             auto layer = SdfLayer::FindOrOpen(layer_id);
             if (layer)
-                layer->TransferContent(SdfLayer::FindOrOpen((transferred_content_path / repath.GetString()).string()));
+                layer->TransferContent(SdfLayer::FindOrOpen((transferred_content_path / std::filesystem::u8path(repath.GetString())).u8string()));
         });
     }
 }
