@@ -511,6 +511,17 @@ std::string Application::get_settings_path()
     }
     else
     {
+        const auto settings_dir = TfGetenv("OPENDCC_SETTINGS_DIR");
+        if (!settings_dir.empty())
+        {
+            m_settings_path = QDir(QString::fromStdString(settings_dir)).absolutePath().toStdString();
+            if (m_settings_path.back() != '/')
+                m_settings_path += '/';
+            if (!QDir().mkpath(QString::fromStdString(m_settings_path)))
+                TF_RUNTIME_ERROR("Failed to create application settings directory '%s'.", m_settings_path.c_str());
+            return m_settings_path;
+        }
+
 #if defined(OPENDCC_OS_WINDOWS)
         const std::string env_name = "USERPROFILE";
 #elif defined(OPENDCC_OS_LINUX)

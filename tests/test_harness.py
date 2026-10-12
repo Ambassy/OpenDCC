@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -82,6 +83,44 @@ class TestHarness(unittest.TestCase):
         )
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("ARGS requires STANDALONE", result.stderr)
+
+    def test_launcher_overrides_inherited_settings_directory(self):
+        parent_profile = self.directory / "parent profile"
+        parent_profile.mkdir()
+        sentinel = parent_profile / "settings.json"
+        sentinel.write_text("parent preferences")
+        environment = os.environ.copy()
+        environment["OPENDCC_SETTINGS_DIR"] = str(parent_profile)
+        profiles = []
+        for exit_code in (0, 1):
+            with self.subTest(exit_code=exit_code):
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        str(self.root / "tests/launch_test.py"),
+                        "--",
+                        sys.executable,
+                        str(self.root / "tests/fixtures/write_test_profile.py"),
+                        str(exit_code),
+                    ],
+                    cwd=self.directory,
+                    env=environment,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                self.assertEqual(result.returncode, exit_code, result.stdout + result.stderr)
+                line = next(
+                    line for line in result.stdout.splitlines() if line.startswith("PROFILE=")
+                )
+                profile = Path(line.removeprefix("PROFILE=")).resolve()
+                self.assertEqual(profile.parent.parent, self.directory.resolve())
+                self.assertNotIn(profile, profiles)
+                profiles.append(profile)
+                self.assertEqual(sentinel.read_text(), "parent preferences")
+                self.assertEqual(profile.exists(), exit_code != 0)
+                if exit_code:
+                    self.assertEqual((profile / "settings.json").read_text(), "test preferences")
 
 
 if __name__ == "__main__":
