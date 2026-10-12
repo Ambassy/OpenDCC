@@ -6,6 +6,15 @@ else()
     set(OS_LIBRARY_ENV_NAME "LD_LIBRARY_PATH")
 endif()
 
+function(opendcc_add_package PACKAGE_NAME)
+    if(WIN32)
+        # Keep Windows build paths short without changing source include roots or install destinations.
+        add_subdirectory("${PACKAGE_NAME}" "${CMAKE_BINARY_DIR}/p/${PACKAGE_NAME}")
+    else()
+        add_subdirectory("${PACKAGE_NAME}")
+    endif()
+endfunction()
+
 function(get_usd_env EXTRA_ENVIRONMENT USD_ENVIRONMENT_VAR)
     set(_result "")
     list(APPEND _result "${USD_LIBRARY_DIR}")
