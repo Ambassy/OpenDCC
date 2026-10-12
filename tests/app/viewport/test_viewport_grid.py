@@ -1,6 +1,8 @@
 # Copyright Contributors to the OpenDCC project
 # SPDX-License-Identifier: Apache-2.0
 
+from pathlib import Path
+
 import OpenImageIO as oiio
 from Qt import QtCore
 from pxr import Gf, Usd, UsdGeom
@@ -102,6 +104,10 @@ class TestViewportGrid(ImageDiffingTestCase):
                     position = (1, 0, 0.5) if up_axis == "Y" else (1, 0.5, 0)
                     self.assertGreater(self.pixel_delta(disabled, enabled, position), 0.05)
                     self.assertGreater(compare_images(disabled, enabled).nfail, 100)
+                    reference = (
+                        Path(__file__).parent / "baseline" / ("grid_" + name.lower() + ".png")
+                    )
+                    self.assert_images_close(reference, name + ".png")
 
     def test_minimum_step_changes_line_spacing(self):
         disabled = self.capture("spacing_disabled")
