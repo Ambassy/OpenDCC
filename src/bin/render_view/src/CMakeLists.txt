@@ -35,9 +35,9 @@ target_link_libraries(
     ${CMAKE_THREAD_LIBS_INIT}
     crash_reporting)
 if(WIN32 AND DCC_RENDER_VIEW_WIN_GUI_EXECUTABLE)
-    # Qt5 needs Qt5::WinMain linked explicitly. Qt6 has no equivalent to link by hand:
-    # Qt6::Core's INTERFACE_LINK_LIBRARIES already pulls in Qt6::EntryPointPrivate for
-    # any WIN32_EXECUTABLE target that does not set qt_no_entrypoint.
+    # Qt5 needs Qt5::WinMain linked explicitly. Qt6 has no equivalent to link by hand: Qt6::Core's
+    # INTERFACE_LINK_LIBRARIES already pulls in Qt6::EntryPointPrivate for any WIN32_EXECUTABLE target that does not set
+    # qt_no_entrypoint.
     if(QT_VERSION_MAJOR LESS 6)
         target_link_libraries(${BIN_NAME} Qt5::WinMain)
     endif()
@@ -63,8 +63,10 @@ if(MSVC)
         DESTINATION bin
         OPTIONAL)
 elseif(UNIX AND NOT APPLE)
+    configure_file(${PROJECT_SOURCE_DIR}/cmake/macros/launch_script.sh ${CMAKE_CURRENT_BINARY_DIR}/launch_script.sh
+                   @ONLY NEWLINE_STYLE UNIX)
     install(
-        PROGRAMS ${PROJECT_SOURCE_DIR}/cmake/macros/launch_script.sh
+        PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/launch_script.sh
         DESTINATION bin
         RENAME render_view)
 endif()

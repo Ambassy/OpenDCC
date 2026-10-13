@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <vector>
 #include "pxr/base/vt/array.h"
-#include "opendcc/base/vendor/ghc/filesystem.hpp"
+#include <filesystem>
 
 PXR_NAMESPACE_USING_DIRECTIVE
 OPENDCC_NAMESPACE_OPEN
@@ -85,7 +85,7 @@ PackageData TOMLParser::parse(const std::string& path)
         return result;
     }
 
-    result.path = ghc::filesystem::path(path).parent_path().generic_string();
+    result.path = std::filesystem::u8path(path).parent_path().generic_u8string();
     if (auto name_opt = table->get_qualified_as<std::string>("base.name"))
     {
         result.name = *name_opt;

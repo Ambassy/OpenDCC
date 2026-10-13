@@ -13,6 +13,7 @@ import tempfile
 def test_environment(directory, runtime_paths):
     env = os.environ.copy()
     profile_paths = {
+        "OPENDCC_SETTINGS_DIR": "settings",
         "HOME": "home",
         "USERPROFILE": "home",
         "APPDATA": "config",

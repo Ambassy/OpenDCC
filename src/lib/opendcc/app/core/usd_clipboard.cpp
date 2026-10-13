@@ -16,7 +16,7 @@
 #include <pxr/usd/usd/usdcFileFormat.h>
 #endif
 
-#include "opendcc/base/vendor/ghc/filesystem.hpp"
+#include <filesystem>
 #include "opendcc/base/commands_api/core/command_registry.h"
 #include "opendcc/base/logging/logger.h"
 #include "opendcc/app/core/application.h"
@@ -27,16 +27,16 @@ OPENDCC_NAMESPACE_OPEN
 
 UsdClipboard::UsdClipboard()
 {
-    auto clipboard_path = ghc::filesystem::temp_directory_path();
+    auto clipboard_path = std::filesystem::temp_directory_path();
     clipboard_path.append("OpenDCCClipboard.usd");
-    set_clipboard_path(clipboard_path.string());
+    set_clipboard_path(clipboard_path.u8string());
 #if PXR_VERSION >= 2508
     set_clipboard_file_format(SdfUsdcFileFormatTokens->Id.GetText());
 #else
     set_clipboard_file_format(UsdUsdcFileFormatTokens->Id.GetText());
 #endif
 
-    if (!ghc::filesystem::exists(m_path_to_clipboard))
+    if (!std::filesystem::exists(std::filesystem::u8path(m_path_to_clipboard)))
     {
         SdfLayerRefPtr layer = SdfLayer::CreateAnonymous();
         UsdStageRefPtr clipboard_stage = UsdStage::Open(layer->GetIdentifier(), UsdStage::LoadNone);

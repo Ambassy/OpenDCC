@@ -99,6 +99,9 @@ public:
     void set_view_OCIO(const std::string& view_ocio);
     std::string get_view_ocio() const;
 
+    void set_input_color_space(const std::string& color_space);
+    std::string get_input_color_space() const;
+
     void set_gamma(float gamma);
     float get_gamma() const;
 

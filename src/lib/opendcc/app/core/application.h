@@ -389,8 +389,10 @@ public:
     /**
      * @brief Returns a path to the application settings directory.
      *
-     * For Windows: %USERPROFILE%/.dcc
-     * For Linux and MacOS: $HOME/.dcc
+     * OPENDCC_SETTINGS_DIR overrides the directory when nonempty. Relative paths
+     * are resolved from the working directory on first use. The result is cached.
+     * Otherwise, uses %USERPROFILE%/.opendcc on Windows or $HOME/.opendcc on Linux and MacOS.
+     * The returned path includes a trailing separator.
      *
      */
     OPENDCC_API std::string get_settings_path();

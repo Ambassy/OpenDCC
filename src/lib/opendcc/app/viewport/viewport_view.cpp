@@ -87,6 +87,56 @@ QWidget* ViewportView::get_widget() const
     return get_gl_widget();
 }
 
+void ViewportView::set_color_mode(const std::string& mode)
+{
+    get_gl_widget()->set_color_mode(mode);
+}
+
+std::string ViewportView::get_color_mode() const
+{
+    return get_gl_widget()->get_color_mode();
+}
+
+void ViewportView::set_ocio_view(const std::string& view)
+{
+    get_gl_widget()->set_view_OCIO(view);
+}
+
+std::string ViewportView::get_ocio_view() const
+{
+    return get_gl_widget()->get_view_ocio();
+}
+
+void ViewportView::set_input_color_space(const std::string& color_space)
+{
+    get_gl_widget()->set_input_color_space(color_space);
+}
+
+std::string ViewportView::get_input_color_space() const
+{
+    return get_gl_widget()->get_input_color_space();
+}
+
+void ViewportView::set_gamma(float gamma)
+{
+    get_gl_widget()->set_gamma(gamma);
+}
+
+float ViewportView::get_gamma() const
+{
+    return get_gl_widget()->get_gamma();
+}
+
+void ViewportView::set_exposure(float exposure)
+{
+    get_gl_widget()->set_exposure(exposure);
+}
+
+float ViewportView::get_exposure() const
+{
+    return get_gl_widget()->get_exposure();
+}
+
 TfToken ViewportView::get_scene_context_type() const
 {
     return get_gl_widget()->get_scene_context_type();

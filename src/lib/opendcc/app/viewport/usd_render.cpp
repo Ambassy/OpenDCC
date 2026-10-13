@@ -8,7 +8,7 @@
 #include "opendcc/usd/usd_live_share/live_share_session.h"
 #include "opendcc/app/viewport/render_process.h"
 
-#include <opendcc/base/vendor/ghc/filesystem.hpp>
+#include <filesystem>
 
 #include <pxr/base/js/json.h>
 
@@ -35,7 +35,7 @@ UsdRender::~UsdRender()
 {
     stop_render();
     if (!m_tmp_dir.empty())
-        ghc::filesystem::remove_all(m_tmp_dir);
+        std::filesystem::remove_all(m_tmp_dir);
 }
 
 void UsdRender::set_attributes(const RenderAttributes& attributes)
@@ -83,7 +83,7 @@ void UsdRender::update_render_cmd(const std::string& stage_path, const std::stri
     }
 }
 
-ghc::filesystem::path UsdRender::write_transfer_layers() const
+std::filesystem::path UsdRender::write_transfer_layers() const
 {
     auto usd_tmp_folder = m_tmp_dir / "usd";
 
@@ -110,15 +110,15 @@ ghc::filesystem::path UsdRender::write_transfer_layers() const
             continue;
 
         const auto base_name = TfGetBaseName(layer->GetRealPath());
-        auto path = usd_tmp_folder / base_name;
+        auto path = usd_tmp_folder / std::filesystem::u8path(base_name);
         layers_remap[layer->GetIdentifier()] = "/usd/" + base_name;
-        layer->Export(path.string());
+        layer->Export(path.u8string());
     }
 
     if (layers_remap.empty())
-        return ghc::filesystem::path();
+        return std::filesystem::path();
     auto config_path = (m_tmp_dir / "usd_layer_transfer_content.json");
-    auto file_stream = std::ofstream(config_path.string());
+    auto file_stream = std::ofstream(config_path);
     if (!file_stream.is_open())
         return {};
 
@@ -136,21 +136,21 @@ void UsdRender::init_temp_dir()
     {
         if (!m_tmp_dir.empty())
         {
-            ghc::filesystem::remove_all(m_tmp_dir);
+            std::filesystem::remove_all(m_tmp_dir);
             m_tmp_dir.clear();
         }
 
         static std::atomic_ullong render_id(0);
         const auto id = render_id++;
 
-        m_tmp_dir = ghc::filesystem::temp_directory_path() / ("hydra_render_" + get_pid_string() + '_' + std::to_string(id));
-        ghc::filesystem::create_directories(m_tmp_dir);
+        m_tmp_dir = std::filesystem::temp_directory_path() / ("hydra_render_" + get_pid_string() + '_' + std::to_string(id));
+        std::filesystem::create_directories(m_tmp_dir);
         auto usd_tmp_folder = m_tmp_dir / "usd";
-        ghc::filesystem::create_directories(usd_tmp_folder);
+        std::filesystem::create_directories(usd_tmp_folder);
     }
-    catch (const ghc::filesystem::filesystem_error& e)
+    catch (const std::filesystem::filesystem_error& e)
     {
-        RenderCatalog::instance().add_msg(m_log_data.catalog, "Failed to create temp folder " + m_tmp_dir.string() + " : " + e.what());
+        RenderCatalog::instance().add_msg(m_log_data.catalog, "Failed to create temp folder " + m_tmp_dir.u8string() + " : " + e.what());
     }
 }
 
@@ -249,7 +249,7 @@ bool UsdRender::init_render(RenderMethod type)
     {
         return false;
     }
-    update_render_cmd(stage->GetRootLayer()->GetRealPath(), cfg_path.string());
+    update_render_cmd(stage->GetRootLayer()->GetRealPath(), cfg_path.u8string());
     return true;
 }
 

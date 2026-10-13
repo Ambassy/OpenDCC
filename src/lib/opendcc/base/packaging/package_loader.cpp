@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "opendcc/base/packaging/package_loader.h"
-#include "opendcc/base/vendor/ghc/filesystem.hpp"
+#include <filesystem>
+#include <algorithm>
 #include "opendcc/base/logging/logger.h"
 #include "opendcc/base/pybind_bridge/pybind11.h"
 #if defined(OPENDCC_OS_WINDOWS)
@@ -24,12 +25,12 @@ OPENDCC_NAMESPACE_OPEN
 
 namespace
 {
-    ghc::filesystem::path make_absolute_path(const std::string& root, const std::string& path)
+    std::filesystem::path make_absolute_path(const std::string& root, const std::string& path)
     {
-        auto result = ghc::filesystem::path(path);
+        auto result = std::filesystem::u8path(path);
         if (result.is_relative())
         {
-            result = root / result;
+            result = std::filesystem::u8path(root) / result;
         }
         return result;
     }
@@ -122,58 +123,8 @@ bool PackageLoader::load(const std::string& pkg_name)
             return false;
         }
 
-        const auto& environment = pkg_data->get_resolved<VtDictionary>("environment");
-        if (!environment.empty())
-        {
-            for (const auto& attr : environment)
-            {
-                const auto& env_name = attr.first;
-                // PYTHONPATH is handled in different way below
-                if (env_name == "PYTHONPATH")
-                {
-                    continue;
-                }
-
-                const auto& vals = attr.second.Get<VtArray<VtDictionary>>();
-                // TODO: revisit it, make more clever design with append/prepend to variable, etc
-                // for now support only for PYTHONPATH and PATH. Prepend new values for PATH
-                if (env_name != "PATH")
-                {
-                    continue;
-                }
-
-                auto cur_env_var_value = get_env(env_name);
-                for (const auto& val : vals)
-                {
-                    const auto env_val = val.GetValueAtPath("value");
-                    if (!env_val)
-                    {
-                        OPENDCC_WARN("Failed to extend environment variable '{}' for package '{}': 'value' entry not found.", env_name, dep);
-                        continue;
-                    }
-
-                    const auto path = make_absolute_path(pkg_data->root_dir, env_val->Get<std::string>()).string();
-                    cur_env_var_value = path + OPENDCC_PATH_LIST_SEPARATOR + cur_env_var_value;
-                }
-                set_env(env_name, cur_env_var_value);
-            }
-        }
-
-        const auto& pythonpath_env = pkg_data->get_resolved<VtArray<VtDictionary>>("environment.PYTHONPATH");
-        for (const auto& env_entry : pythonpath_env)
-        {
-            const auto env_val = env_entry.GetValueAtPath("value");
-            if (!env_val)
-            {
-                OPENDCC_WARN("Failed to extend Python environment for package '{}': 'value' entry not found.", dep);
-                continue;
-            }
-            auto path = make_absolute_path(pkg_data->root_dir, env_val->Get<std::string>());
-            if (!extend_python_path(path.lexically_normal().generic_string(), pkg_name, pkg_data->name))
-            {
-                continue;
-            }
-        }
+        apply_environment(pkg_data);
+        apply_python_paths(pkg_data, pkg_name);
 
         const auto first_entry_point = pkg_data->get_resolved("base.first_entry_point", "cpp");
         if (first_entry_point == "cpp")
@@ -190,6 +141,145 @@ bool PackageLoader::load(const std::string& pkg_name)
     }
 
     return true;
+}
+
+void PackageLoader::apply_environment(const std::shared_ptr<PackageSharedData>& pkg_data)
+{
+    const auto environment = pkg_data->resolved_attributes.GetValueAtPath("environment", ".");
+    if (!environment)
+        return;
+    if (!environment->IsHolding<VtDictionary>())
+    {
+        OPENDCC_WARN("Invalid environment table for package '{}'.", pkg_data->name);
+        return;
+    }
+
+    for (const auto& variable : environment->UncheckedGet<VtDictionary>())
+    {
+        const auto& name = variable.first;
+        if (!variable.second.IsHolding<VtArray<VtDictionary>>())
+        {
+            OPENDCC_WARN("Invalid environment entries for '{}' in package '{}'.", name, pkg_data->name);
+            continue;
+        }
+        const bool path_variable = name == "PATH";
+        for (const auto& entry : variable.second.UncheckedGet<VtArray<VtDictionary>>())
+        {
+            const auto value = entry.GetValueAtPath("value");
+            const auto operation_attr = entry.GetValueAtPath("operation");
+            const auto path_attr = entry.GetValueAtPath("is_path");
+            const auto expand_attr = entry.GetValueAtPath("expand_tokens");
+            const auto separator_attr = entry.GetValueAtPath("separator");
+            if (!value || !value->IsHolding<std::string>() || (operation_attr && !operation_attr->IsHolding<std::string>()) ||
+                (path_attr && !path_attr->IsHolding<bool>()) || (expand_attr && !expand_attr->IsHolding<bool>()) ||
+                (separator_attr && !separator_attr->IsHolding<std::string>()))
+            {
+                OPENDCC_WARN("Invalid environment entry for '{}' in package '{}'.", name, pkg_data->name);
+                continue;
+            }
+            const auto operation = operation_attr ? operation_attr->UncheckedGet<std::string>() : path_variable ? "prepend" : "set";
+            if (operation != "set" && operation != "append" && operation != "prepend")
+            {
+                OPENDCC_WARN("Unknown environment operation '{}' for '{}' in package '{}'.", operation, name, pkg_data->name);
+                continue;
+            }
+            const bool is_path = path_attr ? path_attr->UncheckedGet<bool>() : path_variable;
+            auto resolved_value = value->UncheckedGet<std::string>();
+            if (is_path && !resolved_value.empty())
+                resolved_value = make_absolute_path(pkg_data->root_dir, resolved_value).lexically_normal().u8string();
+            if (operation != "set" && resolved_value.empty())
+                continue;
+            const auto separator = separator_attr ? separator_attr->UncheckedGet<std::string>() : OPENDCC_PATH_LIST_SEPARATOR;
+            const auto previous = get_env(name);
+            auto result = resolved_value;
+            if (!previous.empty() && !resolved_value.empty())
+            {
+                if (operation == "append")
+                    result = previous + separator + resolved_value;
+                else if (operation == "prepend")
+                    result = resolved_value + separator + previous;
+            }
+
+            if (!set_env(name, result))
+            {
+                OPENDCC_WARN("Failed to set environment variable '{}' for package '{}'.", name, pkg_data->name);
+                continue;
+            }
+        }
+    }
+}
+
+void PackageLoader::update_python_path(const std::string& path, const std::string& operation, const std::string& pkg_name,
+                                       const std::string& dependent_package)
+{
+    if (operation == "set")
+        remove_package_python_paths();
+    if (path.empty())
+        return;
+    PyLock lock;
+    auto paths = module_::import("sys").attr("path").cast<list>();
+    if (operation == "prepend")
+        paths.attr("insert")(0, path);
+    else if (!extend_python_path(path, pkg_name, dependent_package))
+        return;
+    m_python_paths.push_back({ path, operation == "prepend" });
+}
+
+void PackageLoader::remove_package_python_paths()
+{
+    PyLock lock;
+    auto paths = module_::import("sys").attr("path").cast<list>();
+    // Remove our additions in reverse order, leaving startup entries in place.
+    for (auto entry = m_python_paths.rbegin(); entry != m_python_paths.rend(); ++entry)
+    {
+        const auto count = len(paths);
+        for (size_t offset = 0; offset < count; ++offset)
+        {
+            const auto index = entry->prepended ? offset : count - offset - 1;
+            const auto item = paths[index];
+            if (isinstance<str>(item) && item.cast<std::string>() == entry->value)
+            {
+                paths.attr("pop")(index);
+                break;
+            }
+        }
+    }
+    m_python_paths.clear();
+}
+
+void PackageLoader::apply_python_paths(const std::shared_ptr<PackageSharedData>& pkg_data, const std::string& dependent_package)
+{
+    const auto entries = pkg_data->resolved_attributes.GetValueAtPath("python.path", ".");
+    if (!entries)
+        return;
+    if (!entries->IsHolding<VtArray<VtDictionary>>())
+    {
+        OPENDCC_WARN("Invalid Python paths for package '{}'.", pkg_data->name);
+        return;
+    }
+    for (const auto& entry : entries->UncheckedGet<VtArray<VtDictionary>>())
+    {
+        const auto path = entry.GetValueAtPath("path");
+        const auto operation_attr = entry.GetValueAtPath("operation");
+        const auto path_attr = entry.GetValueAtPath("is_path");
+        const auto expand_attr = entry.GetValueAtPath("expand_tokens");
+        if (!path || !path->IsHolding<std::string>() || (operation_attr && !operation_attr->IsHolding<std::string>()) ||
+            (path_attr && !path_attr->IsHolding<bool>()) || (expand_attr && !expand_attr->IsHolding<bool>()))
+        {
+            OPENDCC_WARN("Invalid Python path entry for package '{}'.", pkg_data->name);
+            continue;
+        }
+        const auto operation = operation_attr ? operation_attr->UncheckedGet<std::string>() : "append";
+        if (operation != "set" && operation != "append" && operation != "prepend")
+        {
+            OPENDCC_WARN("Unknown Python path operation '{}' for package '{}'.", operation, pkg_data->name);
+            continue;
+        }
+        auto value = path->UncheckedGet<std::string>();
+        if (!value.empty() && (!path_attr || path_attr->UncheckedGet<bool>()))
+            value = make_absolute_path(pkg_data->root_dir, value).lexically_normal().generic_u8string();
+        update_python_path(value, operation, pkg_data->name, dependent_package);
+    }
 }
 
 bool PackageLoader::unload(const std::string& pkg_name)
@@ -357,23 +447,23 @@ bool PackageLoader::extend_python_path(const std::string& path, const std::strin
     {
         module_::import("sys").attr("path").attr("append")(path);
 #if PY_MAJOR_VERSION < 3
-        std::function<void(const ghc::filesystem::path&)> traverse = [&path, &traverse](const ghc::filesystem::path& root) {
-            for (const auto& dir_entry : ghc::filesystem::directory_iterator(root))
+        std::function<void(const std::filesystem::path&)> traverse = [&path, &traverse](const std::filesystem::path& root) {
+            for (const auto& dir_entry : std::filesystem::directory_iterator(root))
             {
                 if (!dir_entry.is_directory())
                 {
                     continue;
                 }
 
-                if (ghc::filesystem::exists(dir_entry / "__init__.py"))
+                if (std::filesystem::exists(dir_entry.path() / "__init__.py"))
                 {
                     const auto dir_path = dir_entry.path();
-                    auto rel_path = ghc::filesystem::relative(dir_entry, path).lexically_normal().generic_string();
+                    auto rel_path = std::filesystem::relative(dir_entry.path(), std::filesystem::u8path(path)).lexically_normal().generic_u8string();
                     std::replace(rel_path.begin(), rel_path.end(), '/', '.');
                     try
                     {
-                        import(rel_path.c_str()).attr("__path__").attr("append")(dir_path.generic_string());
-                        traverse(dir_entry);
+                        import(rel_path.c_str()).attr("__path__").attr("append")(dir_path.generic_u8string());
+                        traverse(dir_entry.path());
                     }
                     catch (const error_already_set& err)
                     {
@@ -382,7 +472,7 @@ bool PackageLoader::extend_python_path(const std::string& path, const std::strin
                 }
             }
         };
-        traverse(path);
+        traverse(std::filesystem::u8path(path));
 #endif
         return true;
     }
@@ -414,11 +504,11 @@ bool PackageLoader::load_cpp_libs(const std::shared_ptr<PackageSharedData>& pkg_
 
             const auto path = make_absolute_path(pkg_data->root_dir, it->second.Get<std::string>());
 
-            OPENDCC_INFO("Loading library '{}'...", path.string());
+            OPENDCC_INFO("Loading library '{}'...", path.u8string());
 #ifdef OPENDCC_OS_WINDOWS
-            if (auto handle = dl_open(path.string(), LOAD_WITH_ALTERED_SEARCH_PATH))
+            if (auto handle = dl_open(path.u8string(), LOAD_WITH_ALTERED_SEARCH_PATH))
 #else
-            if (auto handle = dl_open(path.string(), RTLD_NOW))
+            if (auto handle = dl_open(path.u8string(), RTLD_NOW))
 #endif
             {
                 if (col == native_entry_points)
@@ -428,7 +518,7 @@ bool PackageLoader::load_cpp_libs(const std::shared_ptr<PackageSharedData>& pkg_
                     {
                         OPENDCC_WARN(
                             "Failed to execute entry point declared in '{}': 'opendcc_package_entry_point' entry point is not defined, check usage of `OPENDCC_DEFINE_PACKAGE_ENTRY_POINT` macro.",
-                            path.string());
+                            path.u8string());
                         dl_close(handle);
                         continue;
                     }
@@ -446,7 +536,7 @@ bool PackageLoader::load_cpp_libs(const std::shared_ptr<PackageSharedData>& pkg_
                         }
                         catch (const std::exception& exception)
                         {
-                            OPENDCC_ERROR("Exception occurred during entry point initialization, defined in '{}': {}.", path.string(),
+                            OPENDCC_ERROR("Exception occurred during entry point initialization, defined in '{}': {}.", path.u8string(),
                                           exception.what());
                             native_entry_point->close();
                             continue;
@@ -455,7 +545,7 @@ bool PackageLoader::load_cpp_libs(const std::shared_ptr<PackageSharedData>& pkg_
                     else
                     {
                         OPENDCC_ERROR("Failed to create entry point declared in '{}': 'opendcc_package_entry_point' returned nullptr.",
-                                      path.string());
+                                      path.u8string());
                         dl_close(handle);
                         continue;
                     }
@@ -469,7 +559,7 @@ bool PackageLoader::load_cpp_libs(const std::shared_ptr<PackageSharedData>& pkg_
             }
             else
             {
-                OPENDCC_ERROR("Failed to load library '{}' for package '{}': {}.", path.string(), pkg_data->name, dl_error_str());
+                OPENDCC_ERROR("Failed to load library '{}' for package '{}': {}.", path.u8string(), pkg_data->name, dl_error_str());
                 continue;
             }
         }

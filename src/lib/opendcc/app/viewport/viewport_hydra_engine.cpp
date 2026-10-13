@@ -641,8 +641,7 @@ void ViewportHydraEngine::compose_aovs()
 
     if (!m_interop)
         m_interop = std::make_unique<HgiInterop>();
-    m_interop->TransferToApp(m_hgi.get(), color_handle, depth_handle, HgiTokens->OpenGL,
-                             VtValue(static_cast<uint32_t>(app_draw_fbo)), region);
+    m_interop->TransferToApp(m_hgi.get(), color_handle, depth_handle, HgiTokens->OpenGL, VtValue(static_cast<uint32_t>(app_draw_fbo)), region);
 #endif
 }
 
@@ -1511,7 +1510,8 @@ SdfPath ViewportHydraEngine::get_prim_path_from_instance_index(const SdfPath& rp
         auto instance_path = delegate->GetScenePrimPath(rprimId, instanceIndex, &ctx);
         if (instance_path.IsEmpty())
             continue;
-        if (instance_path != rprimId || !rprimId.IsPropertyPath())
+        // Ignore the identity result returned by delegates that do not resolve this instance.
+        if (instance_path != rprimId || !ctx.empty())
         {
             if (instancer_context)
                 *instancer_context = ctx;

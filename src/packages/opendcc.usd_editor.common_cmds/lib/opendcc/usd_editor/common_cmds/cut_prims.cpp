@@ -8,7 +8,6 @@
 #include "opendcc/app/core/application.h"
 #include "opendcc/app/core/session.h"
 #include "opendcc/base/commands_api/core/command_registry.h"
-#include <opendcc/base/vendor/ghc/filesystem.hpp>
 #include <pxr/usd/sdf/copyUtils.h>
 
 OPENDCC_NAMESPACE_OPEN

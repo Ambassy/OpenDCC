@@ -5,7 +5,7 @@
 #include <opendcc/base/packaging/toml_parser.h>
 #include <pxr/base/tf/fileUtils.h>
 #include "pxr/base/tf/pathUtils.h"
-#include "opendcc/base/vendor/ghc/filesystem.hpp"
+#include <filesystem>
 #include "opendcc/base/logging/logger.h"
 
 PXR_NAMESPACE_USING_DIRECTIVE
@@ -51,8 +51,8 @@ void FileSystemPackageProvider::fetch()
     std::unordered_map<std::string, std::string> unique_packages;
     for (const auto& path : found_package_paths)
     {
-        ghc::filesystem::path file_path(path);
-        auto parser = m_package_parsers[file_path.extension().string()];
+        auto file_path = std::filesystem::u8path(path);
+        auto parser = m_package_parsers[file_path.extension().u8string()];
         if (parser)
         {
             auto data = parser->parse(path);

@@ -4,7 +4,7 @@
 #include "opendcc/base/pybind_bridge/pybind11.h"
 #include "opendcc/base/packaging/package_loader.h"
 #include "opendcc/base/packaging/package_resolver.h"
-#include "opendcc/base/vendor/ghc/filesystem.hpp"
+#include <filesystem>
 #include "opendcc/base/utils/library.h"
 #include <pxr/base/vt/array.h>
 #include <cstdio>
@@ -28,7 +28,7 @@ DOCTEST_TEST_SUITE("PackagingPackageLoader")
     {
         char tmp_dir_str[1024] = {};
         tmpnam(tmp_dir_str);
-        DOCTEST_CHECK(ghc::filesystem::create_directory(tmp_dir_str));
+        DOCTEST_CHECK(std::filesystem::create_directory(tmp_dir_str));
         auto tests_a_dll_hndl = dl_open("packaging_tests_a.dll", DONT_RESOLVE_DLL_REFERENCES);
         auto tests_b_dll_hndl = dl_open("packaging_tests_b.dll", DONT_RESOLVE_DLL_REFERENCES);
         char dll_path_a[512];
@@ -38,22 +38,22 @@ DOCTEST_TEST_SUITE("PackagingPackageLoader")
         dl_close(tests_a_dll_hndl);
         dl_close(tests_b_dll_hndl);
 
-        auto tmp_dir = ghc::filesystem::path(tmp_dir_str);
+        auto tmp_dir = std::filesystem::path(tmp_dir_str);
         auto tmp_path = tmp_dir / "packaging_tests_a.dll";
-        auto test_lib_path = ghc::filesystem::path(dll_path_a);
-        ghc::filesystem::copy_file(test_lib_path, tmp_path, ghc::filesystem::copy_options::overwrite_existing);
+        auto test_lib_path = std::filesystem::path(dll_path_a);
+        std::filesystem::copy_file(test_lib_path, tmp_path, std::filesystem::copy_options::overwrite_existing);
         tmp_path = tmp_dir / "packaging_tests_b.dll";
-        test_lib_path = ghc::filesystem::path(dll_path_b);
-        ghc::filesystem::copy_file(test_lib_path, tmp_path, ghc::filesystem::copy_options::overwrite_existing);
+        test_lib_path = std::filesystem::path(dll_path_b);
+        std::filesystem::copy_file(test_lib_path, tmp_path, std::filesystem::copy_options::overwrite_existing);
 
-        ghc::filesystem::copy(ghc::filesystem::path(OPENDCC_PACKAGING_TEST_FIXTURES) / "packaging_tests", tmp_dir / "packaging_tests",
-                              ghc::filesystem::copy_options::recursive);
+        std::filesystem::copy(std::filesystem::u8path(OPENDCC_PACKAGING_TEST_FIXTURES) / "packaging_tests", tmp_dir / "packaging_tests",
+                              std::filesystem::copy_options::recursive);
 
         std::unordered_map<std::string, std::shared_ptr<PackageSharedData>> pkg_shared_data;
         auto test_package_data = std::make_shared<PackageSharedData>();
         test_package_data->name = "test_name";
         test_package_data->loaded = false;
-        test_package_data->root_dir = tmp_dir.lexically_normal().generic_string();
+        test_package_data->root_dir = tmp_dir.lexically_normal().generic_u8string();
         VtDictionary dict;
         dict.SetValueAtPath("base.name", VtValue("test_name"), ".");
         dict.SetValueAtPath("base.unloadable", VtValue(true), ".");

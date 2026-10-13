@@ -6,8 +6,8 @@ name = 'opendcc.anim_engine.core'
 'opendcc.anim_engine.schema' = {}
 'opendcc.anim_engine.curve' = {}
 
-[[environment.PYTHONPATH]]
-value = 'python'
+[[python.path]]
+path = 'python'
 
 [[python.entry_point]]
 module = 'opendcc.anim_engine.core'

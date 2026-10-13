@@ -7,8 +7,8 @@ name = 'opendcc.hydra_op.ui.node_editor'
 'opendcc.usd_editor.usd_node_editor' = {}
 'opendcc.usd_editor.material_editor' = {}
 
-[[environment.PYTHONPATH]]
-value = 'python'
+[[python.path]]
+path = 'python'
 
 [[python.entry_point]]
 module = 'opendcc.hydra_op.ui.node_editor'

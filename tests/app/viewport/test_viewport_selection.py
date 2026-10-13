@@ -68,6 +68,17 @@ class TestViewportSelection(ImageDiffingTestCase):
         self.assertIsNotNone(action, "Missing viewport action: " + name)
         action.setChecked(True)
 
+    def assert_point_colors(self, reference_path, image, mesh):
+        reference = oiio.ImageBuf(str(reference_path.resolve()))
+        self.assertTrue(reference.read(0, 0, True), reference.geterror())
+        for index, position in enumerate(mesh.GetPointsAttr().Get()):
+            with self.subTest(point=index):
+                screen_position = project_to_viewport(self.view, position)
+                x, y = round(screen_position[0]), round(screen_position[1])
+                # Marker centers retain selection colors despite different edge antialiasing.
+                center = oiio.ROI(x, x + 1, y, y + 1, 0, 1, 0, 3)
+                self.assertEqual(compare_images(reference, image, center).nfail, 0)
+
     def capture_cubes(self, path):
         def cubes_visible(image):
             width, height = image.spec().width, image.spec().height
@@ -223,9 +234,9 @@ class TestViewportSelection(ImageDiffingTestCase):
                 right = oiio.ROI(width // 2, width, 0, height, 0, 1, 0, 3)
                 self.assertEqual(compare_images(baseline, selected, right).nfail, 0)
                 reference_path = Path(__file__).parent / "baseline" / (name + "_selected.png")
-                # A selected point covers too few pixels for the usual whole-image tolerance.
-                tolerance = 1e-6 if name == "points" else 1e-4
-                self.assert_images_close(reference_path, name + "_selected.png", tolerance)
+                self.assert_images_close(reference_path, name + "_selected.png")
+                if name == "points":
+                    self.assert_point_colors(reference_path, selected, mesh)
                 self.app.clear_prim_selection()
                 cleared = self.capture_viewport(
                     self.view,
@@ -280,7 +291,8 @@ class TestViewportSelection(ImageDiffingTestCase):
             self.view, "soft_selected.png", lambda image: compare_images(hard, image).nfail > 0
         )
         reference_path = Path(__file__).parent / "baseline" / "soft_selected.png"
-        self.assert_images_close(reference_path, "soft_selected.png", 1e-6)
+        self.assert_images_close(reference_path, "soft_selected.png")
+        self.assert_point_colors(reference_path, soft, mesh)
         self.assertEqual(self.app.get_selection(), selection)
         _, _, width, height = self.view.get_viewport_dimensions()
         outside = oiio.ROI(3 * width // 4, width, 0, height, 0, 1, 0, 3)

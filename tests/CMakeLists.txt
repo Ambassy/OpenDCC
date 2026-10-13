@@ -1,4 +1,5 @@
 add_subdirectory(base/commands_api/core)
+add_subdirectory(base/commands_api/python_bindings)
 add_subdirectory(base/packaging)
 add_subdirectory(usd/layer_tree_watcher)
 add_subdirectory(usd/usd_ipc_serialization)

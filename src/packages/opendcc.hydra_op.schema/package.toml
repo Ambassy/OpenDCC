@@ -1,8 +1,8 @@
 [base]
 name = 'opendcc.hydra_op.schema'
 
-[[environment.PYTHONPATH]]
-value = 'python'
+[[python.path]]
+path = 'python'
 
 [[python.entry_point]]
 module = 'opendcc.hydra_op.schema'

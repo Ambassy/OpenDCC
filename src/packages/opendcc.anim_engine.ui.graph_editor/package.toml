@@ -7,8 +7,8 @@ name = 'opendcc.anim_engine.ui.graph_editor'
 'opendcc.anim_engine.schema' = {}
 'opendcc.vendor.animx' = {}
 
-[[environment.PYTHONPATH]]
-value = 'python'
+[[python.path]]
+path = 'python'
 
 [[python.entry_point]]
 module = 'opendcc.anim_engine.ui.graph_editor'

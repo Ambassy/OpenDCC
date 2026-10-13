@@ -27,7 +27,7 @@
 #include <pxr/imaging/cameraUtil/conformWindow.h>
 #include <pxr/imaging/hf/pluginDesc.h>
 
-#include <opendcc/base/vendor/ghc/filesystem.hpp>
+#include <filesystem>
 
 #include <QOffscreenSurface>
 #include <QOpenGLContext>
@@ -265,7 +265,7 @@ void IpcRender::send_aovs()
 
 render_system::RenderStatus IpcRender::write_aovs()
 {
-    namespace fs = ghc::filesystem;
+    namespace fs = std::filesystem;
 
     const auto& settings_aovs = m_render_settings->get_aovs();
     for (const auto& aov : m_processor->get_aovs())
@@ -277,7 +277,7 @@ render_system::RenderStatus IpcRender::write_aovs()
             continue;
         }
 
-        const auto file_path = fs::path(aov_setting_iter->product_name.GetString());
+        const auto file_path = fs::u8path(aov_setting_iter->product_name.GetString());
         if (file_path.empty())
         {
             TF_RUNTIME_ERROR("Failed to write aov: product name is empty.");
@@ -300,14 +300,14 @@ render_system::RenderStatus IpcRender::write_aovs()
         storage.flipped = false;
         storage.data = (void*)(aov.data.data());
 #if PXR_VERSION < 2108
-        const auto image = GlfImage::OpenForWriting(file_path.string());
+        const auto image = GlfImage::OpenForWriting(file_path.u8string());
 #else
-        const auto image = HioImage::OpenForWriting(file_path.string());
+        const auto image = HioImage::OpenForWriting(file_path.u8string());
 #endif
         const bool result = image && image->Write(storage);
         if (!result)
         {
-            TF_RUNTIME_ERROR("Failed to write aov to %s", file_path.string().c_str());
+            TF_RUNTIME_ERROR("Failed to write aov to %s", file_path.u8string().c_str());
             return render_system::RenderStatus::FAILED;
         }
     }

@@ -5,7 +5,7 @@
 #include "opendcc/base/utils/process.h"
 
 #include <pxr/usd/usdGeom/pointBased.h>
-#include <opendcc/base/vendor/ghc/filesystem.hpp>
+#include <filesystem>
 
 OPENDCC_NAMESPACE_OPEN
 PXR_NAMESPACE_USING_DIRECTIVE
@@ -14,11 +14,11 @@ LiveShareSession::LiveShareSession(PXR_NS::UsdStageRefPtr stage, const ShareEdit
     : m_stage(stage)
     , m_connection_settings(connection_settings)
 {
-    auto tmp_folder_path = ghc::filesystem::temp_directory_path() / ("opendcc_live_share_" + get_pid_string());
-    ghc::filesystem::create_directories(tmp_folder_path);
+    auto tmp_folder_path = std::filesystem::temp_directory_path() / ("opendcc_live_share_" + get_pid_string());
+    std::filesystem::create_directories(tmp_folder_path);
     auto usd_tmp_folder = tmp_folder_path / "usd";
-    ghc::filesystem::create_directories(usd_tmp_folder);
-    m_layer_transfer_path = tmp_folder_path.string();
+    std::filesystem::create_directories(usd_tmp_folder);
+    m_layer_transfer_path = tmp_folder_path.u8string();
 }
 
 LiveShareSession::~LiveShareSession()

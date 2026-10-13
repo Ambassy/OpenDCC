@@ -700,11 +700,10 @@ void ViewportGLWidget::register_callbacks()
 
     m_setting_changed_cids["colormanagement.ocio_rendering_space"] = Application::instance().get_settings()->register_setting_changed(
         "colormanagement.ocio_rendering_space", [this](const std::string& name, const Settings::Value& val, Settings::ChangeType) {
-            if (!val.try_get<std::string>(&m_params.input_color_space))
+            std::string color_space;
+            if (!val.try_get<std::string>(&color_space))
                 return;
-            if (m_color_correction)
-                m_color_correction->set_color_space(m_params.input_color_space);
-            update();
+            set_input_color_space(color_space);
         });
     m_setting_changed_cids["viewport.grid.lines_color"] = Application::instance().get_settings()->register_setting_changed(
         "viewport.grid.lines_color", [this](const std::string& name, const Settings::Value& val, Settings::ChangeType) {
@@ -1242,6 +1241,19 @@ void ViewportGLWidget::set_view_OCIO(const std::string& view_ocio)
 std::string ViewportGLWidget::get_view_ocio() const
 {
     return m_params.view_OCIO;
+}
+
+void ViewportGLWidget::set_input_color_space(const std::string& color_space)
+{
+    m_params.input_color_space = color_space;
+    if (m_color_correction)
+        m_color_correction->set_color_space(color_space);
+    update();
+}
+
+std::string ViewportGLWidget::get_input_color_space() const
+{
+    return m_params.input_color_space;
 }
 
 void ViewportGLWidget::set_gamma(float gamma)

@@ -5,7 +5,7 @@
 #include <pxr/usd/usd/stage.h>
 #include <fstream>
 
-#include <opendcc/base/vendor/ghc/filesystem.hpp>
+#include <filesystem>
 #define DOCTEST_CONFIG_NO_SHORT_MACRO_NAMES
 #define DOCTEST_CONFIG_SUPER_FAST_ASSERTS
 // Note: this define should be used once per shared lib
@@ -17,35 +17,34 @@ PXR_NAMESPACE_USING_DIRECTIVE
 class SetUp
 {
 private:
-    static ghc::filesystem::path m_tmp_dir;
+    static std::filesystem::path m_tmp_dir;
 
 public:
     SetUp()
     {
-        m_tmp_dir = ghc::filesystem::temp_directory_path() / "layer_tree_tests";
-        ghc::filesystem::remove_all(m_tmp_dir);
+        m_tmp_dir = std::filesystem::temp_directory_path() / "layer_tree_tests";
+        std::filesystem::remove_all(m_tmp_dir);
 
-        ghc::filesystem::create_directory(m_tmp_dir);
-        ghc::filesystem::create_directory(m_tmp_dir / "sub");
-        ghc::filesystem::create_directory(m_tmp_dir / "sub/directory");
+        std::filesystem::create_directory(m_tmp_dir);
+        std::filesystem::create_directory(m_tmp_dir / "sub");
+        std::filesystem::create_directory(m_tmp_dir / "sub/directory");
 
-        std::ofstream(m_tmp_dir.generic_string() + "/empty.usda") << "#usda 1.0";
-        std::ofstream(m_tmp_dir.generic_string() + "/empty2.usda") << "#usda 1.0";
-        std::ofstream(m_tmp_dir.generic_string() + "/rel.usda") << "#usda 1.0\n(subLayers = [@./empty.usda@])";
-        std::ofstream(m_tmp_dir.generic_string() + "/abs.usda")
-            << "#usda 1.0\n(subLayers = [@" << (m_tmp_dir / "empty.usda").generic_string() << "@])";
-        std::ofstream(m_tmp_dir.generic_string() + "/sub/directory/subdir.usda") << "#usda 1.0\n(subLayers = [@../../empty2.usda@])";
+        std::ofstream(m_tmp_dir / "empty.usda") << "#usda 1.0";
+        std::ofstream(m_tmp_dir / "empty2.usda") << "#usda 1.0";
+        std::ofstream(m_tmp_dir / "rel.usda") << "#usda 1.0\n(subLayers = [@./empty.usda@])";
+        std::ofstream(m_tmp_dir / "abs.usda") << "#usda 1.0\n(subLayers = [@" << (m_tmp_dir / "empty.usda").generic_u8string() << "@])";
+        std::ofstream(m_tmp_dir / "sub/directory/subdir.usda") << "#usda 1.0\n(subLayers = [@../../empty2.usda@])";
     }
-    ~SetUp() { ghc::filesystem::remove_all(m_tmp_dir); }
+    ~SetUp() { std::filesystem::remove_all(m_tmp_dir); }
 
     static std::string get_tmp_dir()
     {
-        std::string result = m_tmp_dir.generic_string();
+        std::string result = m_tmp_dir.generic_u8string();
         return result;
     }
 };
 
-ghc::filesystem::path SetUp::m_tmp_dir;
+std::filesystem::path SetUp::m_tmp_dir;
 
 DOCTEST_TEST_SUITE("LayerTreeWatcherTests")
 {

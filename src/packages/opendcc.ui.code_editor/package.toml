@@ -1,5 +1,5 @@
 [base]
 name = 'opendcc.ui.code_editor'
 
-[[environment.PYTHONPATH]]
-value = 'python'
+[[python.path]]
+path = 'python'
