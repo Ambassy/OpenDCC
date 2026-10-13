@@ -48,9 +48,9 @@ class ImageDiffingTestCase(unittest.TestCase):
         self.fail("Viewport did not reach the expected stable state: " + str(path))
 
     def assert_images_close(self, reference_path, actual_path, max_mean_error=1e-4):
-        """Limit mean absolute channel error on [0, 1] pixels (0.01% by default).
+        """Limit mean RGB error beyond PNG rounding noise (0.01% by default).
 
-        Sparse highlights need a tighter limit because this mean covers the whole image.
+        Sparse highlights also need local pixel checks because this mean covers the whole image.
         """
         reference_path = Path(reference_path).resolve()
         actual_path = Path(actual_path).resolve()
@@ -59,19 +59,28 @@ class ImageDiffingTestCase(unittest.TestCase):
             difference_path.unlink()
         reference = oiio.ImageBuf(str(reference_path))
         actual = oiio.ImageBuf(str(actual_path))
-        self.assertTrue(reference.read(0, 0, True), reference.geterror())
-        self.assertTrue(actual.read(0, 0, True), actual.geterror())
+        self.assertTrue(reference.read(0, 0, True, oiio.FLOAT), reference.geterror())
+        self.assertTrue(actual.read(0, 0, True, oiio.FLOAT), actual.geterror())
         self.assertEqual(
-            (reference.spec().width, reference.spec().height, reference.spec().nchannels),
-            (actual.spec().width, actual.spec().height, actual.spec().nchannels),
-            "Image dimensions or channels differ",
+            (reference.spec().width, reference.spec().height),
+            (actual.spec().width, actual.spec().height),
+            "Image dimensions differ",
         )
-        result = compare_images(reference, actual)
-        if result.meanerror > max_mean_error:
-            difference = oiio.ImageBufAlgo.abs(oiio.ImageBufAlgo.sub(reference, actual))
+        self.assertIn(reference.spec().nchannels, (3, 4), "Expected an RGB or RGBA reference")
+        self.assertIn(actual.spec().nchannels, (3, 4), "Expected an RGB or RGBA capture")
+        # Framebuffer alpha availability varies by platform; selection affects RGB.
+        reference = oiio.ImageBufAlgo.channels(reference, (0, 1, 2))
+        actual = oiio.ImageBufAlgo.channels(actual, (0, 1, 2))
+        difference = oiio.ImageBufAlgo.abs(oiio.ImageBufAlgo.sub(reference, actual))
+        excess_error = oiio.ImageBufAlgo.max(
+            oiio.ImageBufAlgo.sub(difference, (PIXEL_TOLERANCE,) * 3), (0.0,) * 3
+        )
+        statistics = oiio.ImageBufAlgo.computePixelStats(excess_error)
+        mean_error = sum(statistics.avg) / len(statistics.avg)
+        if mean_error > max_mean_error:
             self.assertTrue(difference.write(str(difference_path)), difference.geterror())
         self.assertLessEqual(
-            result.meanerror,
+            mean_error,
             max_mean_error,
             "Images differ:\n  {}\n  {}".format(reference_path, actual_path),
         )

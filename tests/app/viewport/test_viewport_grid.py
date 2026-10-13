@@ -4,7 +4,7 @@
 from pathlib import Path
 
 import OpenImageIO as oiio
-from Qt import QtCore
+from Qt import QtCore, QtGui
 from pxr import Gf, Usd, UsdGeom
 import opendcc.core as core
 from image_utils import ImageDiffingTestCase, compare_images
@@ -13,6 +13,12 @@ from viewport_utils import project_to_viewport
 
 class TestViewportGrid(ImageDiffingTestCase):
     def setUp(self):
+        previous_format = QtGui.QSurfaceFormat.defaultFormat()
+        self.addCleanup(QtGui.QSurfaceFormat.setDefaultFormat, previous_format)
+        surface_format = QtGui.QSurfaceFormat(previous_format)
+        # Match the reference captures' 8-bit alpha when blending grid lines.
+        surface_format.setAlphaBufferSize(8)
+        QtGui.QSurfaceFormat.setDefaultFormat(surface_format)
         self.app = core.Application.instance()
         settings = self.app.get_settings()
         settings.set_bool("viewport.grid.enable", False)

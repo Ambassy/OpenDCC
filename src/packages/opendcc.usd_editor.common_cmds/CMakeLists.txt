@@ -66,3 +66,7 @@ opendcc_make_library(
     ${PKG_NAME}/lib)
 
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/package.toml DESTINATION ${PLUGIN_DIR})
+
+if(DCC_BUILD_TESTS)
+    add_subdirectory(tests)
+endif()

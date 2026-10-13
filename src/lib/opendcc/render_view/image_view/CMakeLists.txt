@@ -49,6 +49,9 @@ include_directories(${RENDER_VIEW_SOURCE_DIR}/thirdparty/qtsingleapplication/src
 
 add_library(image_view SHARED ${src} ${headers} ${resources})
 target_compile_definitions(image_view PRIVATE -DOPENDCC_RENDER_VIEW_EXPORT)
+if(DCC_EMBEDDED_PYTHON_HOME)
+    target_compile_definitions(image_view PRIVATE -DOPENDCC_EMBEDDED_PYTHON_HOME)
+endif()
 
 make_folder("render_view" image_view)
 

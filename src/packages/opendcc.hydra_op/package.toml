@@ -6,8 +6,8 @@ name = 'opendcc.hydra_op'
 'opendcc.hydra_op.schema' = {}
 'opendcc.hydra_op.translator' = {}
 
-[[environment.PYTHONPATH]]
-value = 'python'
+[[python.path]]
+path = 'python'
 
 [[native.entry_point]]
 path = 'lib/${LIB_PREFIX}opendcc.hydra_op${LIB_EXT}'

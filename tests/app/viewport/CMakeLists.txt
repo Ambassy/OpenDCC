@@ -8,6 +8,7 @@ set(_viewport_ocio_test_environment
 opendcc_add_python_test(ViewportColorTests SOURCE test_viewport_colors.py GUI ENV ${_viewport_ocio_test_environment})
 opendcc_add_python_test(ViewportOcioTests SOURCE test_viewport_ocio.py GUI ENV ${_viewport_ocio_test_environment})
 opendcc_add_python_test(ViewportColorUtilsTests SOURCE test_viewport_color_utils.py ENV ${_viewport_test_environment})
+opendcc_add_python_test(ViewportInstanceTests SOURCE test_viewport_instances.py GUI ENV ${_viewport_test_environment})
 opendcc_add_python_test(ViewportWidgetTests SOURCE test_viewport_widget.py GUI ENV ${_viewport_test_environment})
 opendcc_add_python_test(ViewportGridTests SOURCE test_viewport_grid.py GUI ENV ${_viewport_test_environment})
 opendcc_add_python_test(ApplicationUiCallbackTests SOURCE test_application_ui_callbacks.py GUI ENV

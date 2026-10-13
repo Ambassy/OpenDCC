@@ -1,0 +1,1 @@
+opendcc_add_python_test(CommonCommandsTests SOURCE test_common_commands.py GUI)

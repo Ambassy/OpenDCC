@@ -1,0 +1,29 @@
+#usda 1.0
+# Copyright Contributors to the OpenDCC project
+# SPDX-License-Identifier: Apache-2.0
+
+(
+    upAxis = "Y"
+)
+
+def PointInstancer "Instances"
+{
+    rel prototypes = </Instances/Prototype>
+    int[] protoIndices = [0, 0]
+    point3f[] positions = [(-2, 0, 0), (2, 0, 0)]
+
+    def Mesh "Prototype" (
+        references = @cube.usda@
+    )
+    {
+    }
+}
+
+def Camera "Camera"
+{
+    token projection = "orthographic"
+    float horizontalAperture = 100
+    float verticalAperture = 100
+    double3 xformOp:translate = (0, 0, 10)
+    uniform token[] xformOpOrder = ["xformOp:translate"]
+}

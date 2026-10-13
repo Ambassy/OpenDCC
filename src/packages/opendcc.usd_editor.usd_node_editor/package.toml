@@ -5,8 +5,8 @@ name = 'opendcc.usd_editor.usd_node_editor'
 'opendcc.ui.node_editor' = {}
 'opendcc.usd_editor.common_cmds' = {}
 
-[[environment.PYTHONPATH]]
-value = 'python'
+[[python.path]]
+path = 'python'
 
 [[native.load]]
 path='lib/${LIB_PREFIX}opendcc.usd_editor.usd_node_editor${LIB_EXT}'

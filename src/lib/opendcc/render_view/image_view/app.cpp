@@ -921,7 +921,9 @@ void RenderViewMainWindow::setup_python_home()
 
 void RenderViewMainWindow::init_python()
 {
+#ifdef OPENDCC_EMBEDDED_PYTHON_HOME
     setup_python_home();
+#endif
 
     if (!Py_IsInitialized())
     {

@@ -3,7 +3,9 @@
 
 #include "opendcc/base/packaging/toml_parser.h"
 #include <pxr/base/vt/array.h>
-#include <fstream>
+#include <algorithm>
+#include <cstdint>
+#include "package_test_utils.h"
 
 #define DOCTEST_CONFIG_NO_SHORT_MACRO_NAMES
 #define DOCTEST_CONFIG_SUPER_FAST_ASSERTS
@@ -17,22 +19,15 @@ DOCTEST_TEST_SUITE("PackagingTOMLParserTests")
     DOCTEST_TEST_CASE("deserialization")
     {
 
-        char tmp_filename[1024] = {};
-        tmpnam(tmp_filename);
-        std::string test_file(tmp_filename);
-        auto write_toml = [&test_file](const std::string& text) {
-            std::ofstream out(test_file);
-            out << text;
-        };
+        packaging_tests::TemporaryDirectory directory;
         PackageData actual;
-        auto validate_attr = [&actual](const std::string& name, const VtValue& expected) {
-            for (const auto& attr : actual.raw_attributes)
-            {
-                if (attr.name == name)
-                {
-                    DOCTEST_CHECK_EQ(attr.value, expected);
-                }
-            }
+        auto assert_attribute = [&actual](const std::string& name, const VtValue& expected) {
+            DOCTEST_INFO("Manifest attribute: " << name);
+            const auto attr = std::find_if(actual.raw_attributes.begin(), actual.raw_attributes.end(),
+                                           [&name](const PackageAttribute& attr) { return attr.name == name; });
+            DOCTEST_REQUIRE(attr != actual.raw_attributes.end());
+            DOCTEST_CHECK(attr->value.GetTypeid() == expected.GetTypeid());
+            DOCTEST_CHECK_EQ(attr->value, expected);
         };
         auto parser = TOMLParser();
 
@@ -63,27 +58,43 @@ a = 42
 [[table_arr]]
 c = 'c'
 )";
-            write_toml(text);
+            const auto test_file = directory.write("package.toml", text);
 
-            auto actual = parser.parse(test_file);
+            actual = parser.parse(test_file);
             DOCTEST_CHECK_EQ(actual.name, std::string("asdf"));
-            validate_attr("name", VtValue("asdf"));
-            validate_attr("bool", VtValue(true));
-            validate_attr("int", VtValue(1ll));
-            validate_attr("float", VtValue(3.1415));
-            validate_attr("str", VtValue("some str"));
-            validate_attr("arr", VtValue(VtArray<int64_t> { 1, 2, 3 }));
-            validate_attr("mixed_arr", VtValue(VtArray<VtValue> { VtValue(3.41), VtValue(0ll) }));
-            validate_attr("table", VtValue(VtDictionary { { std::string("val1"), VtValue("cx") },
-                                                          { std::string("val2"), VtValue(3ll) },
-                                                          { std::string("inline"), VtValue(VtDictionary { { std::string("a"), VtValue("a") },
-                                                                                                          { std::string("b"), VtValue("b") } }) } }));
-            validate_attr("table_arr", VtValue(VtArray<VtDictionary> {
-                                           VtDictionary { { std::string("a"), VtValue(42ll) },
-                                                          { std::string("val"), VtValue(VtDictionary { { std::string("a.b"), VtValue(64ll) } }) } },
-                                           VtDictionary { { std::string("c"), VtValue("c") } } }));
+            assert_attribute("base", VtValue(VtDictionary { { "name", VtValue("asdf") } }));
+            assert_attribute("bool", VtValue(true));
+            assert_attribute("int", VtValue(int64_t { 1 }));
+            assert_attribute("float", VtValue(3.1415));
+            assert_attribute("str", VtValue("some str"));
+            assert_attribute("arr", VtValue(VtArray<VtValue> { VtValue(int64_t { 1 }), VtValue(int64_t { 2 }), VtValue(int64_t { 3 }) }));
+            assert_attribute("mixed_arr", VtValue(VtArray<VtValue> { VtValue(3.41), VtValue(int64_t { 0 }) }));
+
+            const VtDictionary expected_inline_table = { { "a", VtValue("a") }, { "b", VtValue("c") } };
+            const VtDictionary expected_table = { { "val1", VtValue("cx") },
+                                                  { "val2", VtValue(int64_t { 3 }) },
+                                                  { "inline", VtValue(expected_inline_table) } };
+            assert_attribute("table", VtValue(expected_table));
+
+            const VtArray<VtDictionary> expected_nested_tables = { VtDictionary { { "a.b", VtValue(int64_t { 64 }) } } };
+            const VtArray<VtDictionary> expected_table_array = {
+                VtDictionary { { "a", VtValue(int64_t { 42 }) }, { "val", VtValue(expected_nested_tables) } }, VtDictionary { { "c", VtValue("c") } }
+            };
+            assert_attribute("table_arr", VtValue(expected_table_array));
         }
-        std::remove(tmp_filename);
+    }
+
+    DOCTEST_TEST_CASE("invalid_manifests")
+    {
+        packaging_tests::TemporaryDirectory directory;
+        TOMLParser parser;
+        for (const auto& text : { "[base\nname = 'broken'\n", "[base]\nroot = '.'\n", "[base]\nname = 42\n" })
+        {
+            DOCTEST_INFO("Invalid manifest: " << text);
+            const auto filename = directory.write("package.toml", text);
+            DOCTEST_CHECK_FALSE(parser.parse(filename).is_valid());
+        }
+        DOCTEST_CHECK_FALSE(parser.parse((directory.path() / "missing.toml").generic_u8string()).is_valid());
     }
 }
 

@@ -29,8 +29,10 @@ if(MSVC)
         DESTINATION bin
         OPTIONAL)
 elseif(UNIX AND NOT APPLE)
+    configure_file(${PROJECT_SOURCE_DIR}/cmake/macros/launch_script.sh ${CMAKE_CURRENT_BINARY_DIR}/launch_script.sh
+                   @ONLY NEWLINE_STYLE UNIX)
     install(
-        PROGRAMS ${PROJECT_SOURCE_DIR}/cmake/macros/launch_script.sh
+        PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/launch_script.sh
         DESTINATION bin
         RENAME ${TARGET_NAME})
 endif()

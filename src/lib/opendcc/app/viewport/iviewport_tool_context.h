@@ -48,8 +48,8 @@ private:
     int m_y = 0;
     QPoint m_global_pos;
     Qt::MouseButton m_button = Qt::MouseButton::NoButton;
-    Qt::MouseButtons m_buttons = 0;
-    Qt::KeyboardModifiers m_modifiers = 0;
+    Qt::MouseButtons m_buttons = Qt::NoButton;
+    Qt::KeyboardModifiers m_modifiers = Qt::NoModifier;
 };
 
 /**

@@ -96,13 +96,15 @@ if(NOT WIN32)
     elseif(DCC_KATANA_SUPPORT)
         install(FILES ${PROJECT_SOURCE_DIR}/cmake/macros/katana_opendcc_setup.sh DESTINATION ${CMAKE_INSTALL_PREFIX})
     else()
+        configure_file(${PROJECT_SOURCE_DIR}/cmake/macros/opendcc_setup.sh ${PROJECT_BINARY_DIR}/opendcc_setup.sh @ONLY
+                       NEWLINE_STYLE UNIX)
         if("${DCC_DEFAULT_CONFIG}" STREQUAL "anim3dplatform-usd_editor.toml")
             install(
-                FILES ${PROJECT_SOURCE_DIR}/cmake/macros/opendcc_setup.sh
+                FILES ${PROJECT_BINARY_DIR}/opendcc_setup.sh
                 DESTINATION ${CMAKE_INSTALL_PREFIX}
                 RENAME anim3dplatform_dcc_setup.sh)
         else()
-            install(FILES ${PROJECT_SOURCE_DIR}/cmake/macros/opendcc_setup.sh DESTINATION ${CMAKE_INSTALL_PREFIX})
+            install(FILES ${PROJECT_BINARY_DIR}/opendcc_setup.sh DESTINATION ${CMAKE_INSTALL_PREFIX})
         endif()
     endif()
 endif()

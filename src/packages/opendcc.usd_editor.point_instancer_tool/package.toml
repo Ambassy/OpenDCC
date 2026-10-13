@@ -1,8 +1,8 @@
 [base]
 name = 'opendcc.usd_editor.point_instancer_tool'
 
-[[environment.PYTHONPATH]]
-value = 'python'
+[[python.path]]
+path = 'python'
 
 [[python.entry_point]]
 module = 'opendcc.usd_editor.point_instancer_tool'

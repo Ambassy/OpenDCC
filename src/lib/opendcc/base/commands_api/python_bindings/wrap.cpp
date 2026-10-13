@@ -88,7 +88,13 @@ namespace
 
         virtual CommandResult execute(const CommandArgs& args) override
         {
-            OPENDCC_PYBIND11_OVERRIDE_PURE_EXCEPTION_SAFE(CommandResult, UndoCommand, execute, args);
+            gil_scoped_acquire gil;
+            tuple pyargs;
+            dict pykwargs;
+            const auto status = py_utils::convert_args(get_command_name(), args, pyargs, pykwargs);
+            if (status != CommandResult::Status::SUCCESS)
+                return CommandResult(status);
+            OPENDCC_PYBIND11_OVERRIDE_PURE_EXCEPTION_SAFE(CommandResult, UndoCommand, execute, *pyargs, **pykwargs);
         }
 
         virtual void undo() override { OPENDCC_PYBIND11_OVERRIDE_EXCEPTION_SAFE(void, UndoCommand, undo); }
@@ -165,6 +171,24 @@ namespace
     void wrap_unregister_py_command(const std::string& name)
     {
         CommandRegistry::unregister_command(name);
+    }
+
+    std::shared_ptr<Command> create_python_command(const std::function<object()>& factory_fn)
+    {
+        gil_scoped_acquire gil;
+        auto instance = factory_fn();
+        std::shared_ptr<Command> command;
+        // UndoCommand virtually inherits Command; let C++ adjust the base pointer.
+        if (isinstance<UndoCommand>(instance))
+            command = instance.cast<std::shared_ptr<UndoCommand>>();
+        else
+            command = instance.cast<std::shared_ptr<Command>>();
+        // Keep the Python subclass alive so C++ virtual calls can find its overrides.
+        auto owner = std::shared_ptr<object>(new object(std::move(instance)), [](object* instance) {
+            gil_scoped_acquire gil;
+            delete instance;
+        });
+        return std::shared_ptr<Command>(owner, command.get());
     }
 
     CommandResult __execute(std::string name, tuple pyargs, dict pykwargs)
@@ -273,8 +297,11 @@ PYBIND11_MODULE(PYMODULE_NAME, m)
     m.def("__execute", &__execute);
     class_<CommandRegistry, std::unique_ptr<CommandRegistry, nodelete>>(m, "Registry")
         .def_static("register_command",
-                    [](std::string name, object result_type, tuple args, dict kwargs, std::function<std::shared_ptr<Command>()> factory_fn) {
-                        return wrap_register_py_command(std::move(name), result_type, args, kwargs, pybind_safe_callback(factory_fn));
+                    [](std::string name, object result_type, tuple args, dict kwargs, std::function<object()> factory_fn) {
+                        const std::function<std::shared_ptr<Command>()> command_factory = [factory_fn] {
+                            return create_python_command(factory_fn);
+                        };
+                        return wrap_register_py_command(std::move(name), result_type, args, kwargs, pybind_safe_callback(command_factory));
                     })
         .def_static("unregister_command", &wrap_unregister_py_command);
 
@@ -287,9 +314,10 @@ PYBIND11_MODULE(PYMODULE_NAME, m)
         .def("exit", overload_cast<object, object, object>(&PythonUndoCommandBlock::Close));
 
     // TODO: extend python command bindings
-    auto c = class_<Command, CommandWrap, std::shared_ptr<Command>>(m, "Command").def("execute", &CommandWrap::raw_execute);
+    auto c = class_<Command, CommandWrap, std::shared_ptr<Command>>(m, "Command").def(init<>()).def("execute", &CommandWrap::raw_execute);
 
     class_<UndoCommand, Command, UndoCommandWrap, std::shared_ptr<UndoCommand>>(m, "UndoCommand")
+        .def(init<>())
         .def("undo", &UndoCommand::undo)
         .def("redo", &UndoCommand::redo)
         .def("merge_with", &UndoCommand::merge_with);
