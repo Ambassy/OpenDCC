@@ -7,7 +7,9 @@
 #include "opendcc/usd_editor/point_instancer_tool/tool_settings.h"
 
 OPENDCC_NAMESPACE_OPEN
-OPENDCC_INITIALIZE_LIBRARY_LOG_CHANNEL("PointInstancer Tool");
+OPENDCC_INITIALIZE_LIBRARY_LOG_CHANNEL(OPENDCC_PACKAGE_NAME);
+
+using base::packaging::Package;
 
 OPENDCC_DEFINE_PACKAGE_ENTRY_POINT(PointInstancerToolEntryPoint);
 

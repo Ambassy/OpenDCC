@@ -1,3 +1,5 @@
+add_subdirectory(base/utils)
+add_subdirectory(base/logging)
 add_subdirectory(base/commands_api/core)
 add_subdirectory(base/commands_api/python_bindings)
 add_subdirectory(base/packaging)

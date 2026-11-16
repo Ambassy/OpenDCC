@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "opendcc/opendcc.h"
+#include "opendcc/base/logging/logger.h"
 #include "opendcc/app/core/settings.h"
 
 #include <pxr/base/tf/getenv.h>
@@ -12,6 +13,7 @@
 #include "opendcc/app/core/application.h"
 
 OPENDCC_NAMESPACE_OPEN
+OPENDCC_INITIALIZE_LOG_CHANNEL("opendcc.app.settings");
 
 namespace
 {
@@ -39,16 +41,16 @@ Settings::Settings()
     static std::once_flag flag;
     std::call_once(flag, [] {
 #define REGISTER_VALUE_TYPE(val_type, cond, extract)                                                                                              \
-    Settings::register_type<val_type>([](const nonstd::any& val) { return Json::Value(static_cast<val_type>(nonstd::any_cast<val_type>(val))); }, \
+    Settings::register_type<val_type>([](const std::any& val) { return Json::Value(static_cast<val_type>(std::any_cast<val_type>(val))); }, \
                                       [](const Json::Value& val) {                                                                                \
                                           if (cond)                                                                                               \
-                                              return nonstd::make_any<val_type>(static_cast<val_type>(extract));                                  \
-                                          return nonstd::any();                                                                                   \
+                                              return std::make_any<val_type>(static_cast<val_type>(extract));                                  \
+                                          return std::any();                                                                                   \
                                       })
 #define REGISTER_VECTOR_TYPE(val_type, cond, extract)                          \
     Settings::register_type<std::vector<val_type>>(                            \
-        [](const nonstd::any& val) {                                           \
-            const auto vector = nonstd::any_cast<std::vector<val_type>>(val);  \
+        [](const std::any& val) {                                           \
+            const auto vector = std::any_cast<std::vector<val_type>>(val);  \
             Json::Value result(Json::ValueType::arrayValue);                   \
             result.resize(vector.size());                                      \
             for (auto i = 0; i < vector.size(); i++)                           \
@@ -57,12 +59,12 @@ Settings::Settings()
         },                                                                     \
         [](const Json::Value& json_val) {                                      \
             if (!json_val.isArray())                                           \
-                return nonstd::any();                                          \
+                return std::any();                                          \
             if (!json_val.empty())                                             \
             {                                                                  \
                 const auto& val = json_val[0];                                 \
                 if (!cond)                                                     \
-                    return nonstd::any();                                      \
+                    return std::any();                                      \
             }                                                                  \
             std::vector<val_type> result(json_val.size());                     \
             for (auto i = 0; i < json_val.size(); i++)                         \
@@ -70,7 +72,7 @@ Settings::Settings()
                 const auto& val = json_val[i];                                 \
                 result[i] = static_cast<val_type>(extract);                    \
             }                                                                  \
-            return nonstd::make_any<std::vector<val_type>>(std::move(result)); \
+            return std::make_any<std::vector<val_type>>(std::move(result)); \
         })
 
 #define REGISTER_TYPE(val_type, cond, extract)    \
@@ -102,14 +104,14 @@ Settings::Settings(const std::string& settings_path)
     std::ifstream file(m_settings_file);
     if (!file.is_open())
     {
-        TF_WARN("Failed to open application settings file. The settings file will be recreated.");
+        OPENDCC_WARN("Failed to open application settings file. The settings file will be recreated.");
         return;
     }
     Json::CharReaderBuilder builder;
     std::string errs;
     if (!parseFromStream(builder, file, &m_json_root, &errs) || !errs.empty())
     {
-        TF_RUNTIME_ERROR("Settings parse error: %s", errs.c_str());
+        OPENDCC_ERROR("Settings parse error: {}", errs.c_str());
         m_settings_file.clear();
         return;
     }
@@ -276,12 +278,12 @@ void Settings::set_impl(const std::string& path, const ValueHolder& value, std::
 {
     if (value.isObject())
     {
-        TF_RUNTIME_ERROR("Failed to set setting at path '%s': json object values are not supported.", path.c_str());
+        OPENDCC_ERROR("Failed to set setting at path '{}': json object values are not supported.", path.c_str());
         return;
     }
     if (value.isNull())
     {
-        TF_RUNTIME_ERROR("Failed to set setting at path '%s': json value is null.", path.c_str());
+        OPENDCC_ERROR("Failed to set setting at path '{}': json value is null.", path.c_str());
         return;
     }
     auto iter = collection.find(path);
@@ -370,13 +372,19 @@ void Settings::serialize() const
     auto file_stream = std::ofstream(m_settings_file);
     if (!file_stream.is_open())
     {
-        TF_RUNTIME_ERROR("Failed to open application settings file.");
+        OPENDCC_ERROR("Failed to open application settings file.");
         return;
     }
 
     Json::StreamWriterBuilder writer_builder;
     auto writer = std::unique_ptr<Json::StreamWriter>(writer_builder.newStreamWriter());
-    writer->write(m_json_root, &file_stream);
+    const auto result = writer->write(m_json_root, &file_stream);
+    file_stream.flush();
+    if (result != 0 || !file_stream)
+    {
+        OPENDCC_ERROR("Failed to write application settings file.");
+        return;
+    }
 }
 
 void Settings::deserialize()

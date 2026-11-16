@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "opendcc/base/pybind_bridge/usd.h"
+#include "opendcc/base/logging/logger.h"
 #include "opendcc/base/pybind_bridge/shiboken.h"
 #include "opendcc/app/core/application.h"
 
@@ -60,9 +61,14 @@
 #include "opendcc/app/core/sentry_logging_delegate.h"
 
 OPENDCC_NAMESPACE_OPEN
-OPENDCC_INITIALIZE_LIBRARY_LOG_CHANNEL("Application");
+OPENDCC_INITIALIZE_LIBRARY_LOG_CHANNEL("opendcc.app");
 
 PXR_NAMESPACE_USING_DIRECTIVE
+
+using base::app_config::ApplicationConfig;
+using base::packaging::PackageRegistry;
+using base::commands::python::PythonCommandInterface;
+namespace ipc = base::ipc;
 
 namespace
 {
@@ -71,8 +77,8 @@ namespace
     {
         static_assert(GfIsGfVec<T>::value, "Specified type is not GfVec");
         Settings::register_type<T>(
-            [](const nonstd::any& val) {
-                const auto vec_val = nonstd::any_cast<T>(val);
+            [](const std::any& val) {
+                const auto vec_val = std::any_cast<T>(val);
                 Json::Value result(Json::ValueType::arrayValue);
                 result.resize(T::dimension);
                 for (int i = 0; i < T::dimension; i++)
@@ -81,16 +87,16 @@ namespace
             },
             [](const Json::Value& val) {
                 if (!val.isArray())
-                    return nonstd::any();
+                    return std::any();
 
                 T result;
                 for (int i = 0; i < T::dimension; i++)
                 {
                     if (!val[i].isDouble())
-                        return nonstd::any();
+                        return std::any();
                     result[i] = val[i].asDouble();
                 }
-                return nonstd::make_any<T>(std::move(result));
+                return std::make_any<T>(std::move(result));
             });
     }
     void register_extra_settings_types()
@@ -109,8 +115,8 @@ namespace
         register_settings_pxr_vector<GfVec4d>();
 
         Settings::register_type<VtValue>(
-            [](const nonstd::any& val) {
-                auto vt_val = nonstd::any_cast<VtValue>(val);
+            [](const std::any& val) {
+                auto vt_val = std::any_cast<VtValue>(val);
                 if (vt_val.IsHolding<bool>())
                 {
                     return Json::Value(vt_val.UncheckedGet<bool>());
@@ -130,15 +136,15 @@ namespace
             },
             [](const Json::Value& val) {
                 if (val.isBool())
-                    return nonstd::make_any<VtValue>(VtValue(val.asBool()));
+                    return std::make_any<VtValue>(VtValue(val.asBool()));
                 else if (val.isInt())
-                    return nonstd::make_any<VtValue>(VtValue(val.asInt()));
+                    return std::make_any<VtValue>(VtValue(val.asInt()));
                 else if (val.isDouble())
-                    return nonstd::make_any<VtValue>(VtValue(val.asDouble()));
+                    return std::make_any<VtValue>(VtValue(val.asDouble()));
                 else if (val.isString())
-                    return nonstd::make_any<VtValue>(VtValue(val.asString()));
+                    return std::make_any<VtValue>(VtValue(val.asString()));
                 // TODO: arrays
-                return nonstd::any();
+                return std::any();
             });
     }
 };
@@ -320,9 +326,9 @@ Application::Application()
     mtlx_stdlib_search.append(ARCH_PATH_LIST_SEP + mtlx_path.path());
     qputenv("PXR_MTLX_STDLIB_SEARCH_PATHS", mtlx_stdlib_search.toStdString().c_str());
     m_package_registry = std::make_shared<PackageRegistry>();
-    auto package_provider = std::make_shared<FileSystemPackageProvider>();
+    auto package_provider = std::make_shared<base::packaging::FileSystemPackageProvider>();
     package_provider->add_path((m_application_root_path + "/packages/*").c_str());
-    package_provider->register_package_parser("toml", std::make_shared<TOMLParser>());
+    package_provider->register_package_parser("toml", std::make_shared<base::packaging::TOMLParser>());
     m_package_registry->add_package_provider(package_provider);
 #if defined(OPENDCC_OS_WINDOWS)
     m_package_registry->define_token("APP_LIB_DIR", m_application_root_path + "/bin");
@@ -352,7 +358,7 @@ Application::Application()
 
     m_usd_logging_delegate = std::make_unique<UsdLoggingDelegate>();
     PXR_NS::TfDiagnosticMgr::GetInstance().AddDelegate(m_usd_logging_delegate.get());
-    if (CrashHandler::is_enabled())
+    if (base::crash_reporting::CrashHandler::is_enabled())
     {
         m_sentry_logging_delegate = std::make_unique<SentryLoggingDelegate>();
     }
@@ -428,7 +434,7 @@ void Application::init_python(std::vector<std::string>& args)
     PythonCommandInterface::instance().register_conversion<GfMatrix4f>("Gf.Matrix4f");
     PythonCommandInterface::instance().register_conversion<GfMatrix3d>("Gf.Matrix3d");
     PythonCommandInterface::instance().register_conversion<GfMatrix4d>("Gf.Matrix4d");
-    CommandRegistry::register_command_interface(PythonCommandInterface::instance());
+    base::commands::CommandRegistry::register_command_interface(PythonCommandInterface::instance());
 }
 
 void Application::run_startup_init()
@@ -518,7 +524,7 @@ std::string Application::get_settings_path()
             if (m_settings_path.back() != '/')
                 m_settings_path += '/';
             if (!QDir().mkpath(QString::fromStdString(m_settings_path)))
-                TF_RUNTIME_ERROR("Failed to create application settings directory '%s'.", m_settings_path.c_str());
+                OPENDCC_ERROR("Failed to create application settings directory '{}'.", m_settings_path.c_str());
             return m_settings_path;
         }
 
@@ -535,7 +541,7 @@ std::string Application::get_settings_path()
 
         if (home_dir.empty())
         {
-            TF_RUNTIME_ERROR("Failed to find home directory (%s).", env_name.c_str());
+            OPENDCC_ERROR("Failed to find home directory ({}).", env_name.c_str());
             return m_settings_path;
         }
 
@@ -766,7 +772,7 @@ void Application::create_command_server()
         {
             auto scene_lib_crop = crop;
             scene_lib_crop.name = "CropSceneLibRender";
-            s_server->send_command(get_pid_string(), scene_lib_crop);
+            s_server->send_command(base::utils::get_pid_string(), scene_lib_crop);
         }
     });
 
@@ -795,13 +801,12 @@ void Application::create_command_server()
     ipc::CommandServer::set_server_timeout(config.get<int>("ipc.command_server.server_timeout", 1000));
     ipc::ServerInfo info;
     info.hostname = "127.0.0.1";
-    info.input_port = config.get<uint32_t>("ipc.command_server.port", 8000);
+    info.input_port = config.get<uint32_t>("ipc.command_server.port", 5558);
 
     s_server = std::make_unique<ipc::CommandServer>(info);
-    info = s_server->get_info();
     if (!s_server->valid())
     {
-        OPENDCC_ERROR("Unable to create CommandServer on port {}", info.input_port);
+        OPENDCC_ERROR("Unable to create CommandServer at {}", info.get_tcp_address());
     }
 }
 
@@ -864,12 +869,12 @@ OPENDCC_API std::tuple<int, int, int, int> Application::get_opendcc_version()
 
 OPENDCC_API const std::string Application::get_build_date()
 {
-    return std::string(platform::get_build_date_str());
+    return std::string(base::app_version::get_build_date_str());
 }
 
 OPENDCC_API const std::string Application::get_commit_hash()
 {
-    return std::string(platform::get_git_commit_hash_str());
+    return std::string(base::app_version::get_git_commit_hash_str());
 }
 
 int Application::run_python_script(const std::string& filepath)

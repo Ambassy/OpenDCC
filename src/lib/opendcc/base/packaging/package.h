@@ -7,68 +7,82 @@
 
 #include "opendcc/opendcc.h"
 #include "opendcc/base/packaging/api.h"
-#include <pxr/base/vt/value.h>
 
+#include "opendcc/base/packaging/package_attributes.h"
+#include "opendcc/base/logging/logger.h"
+#include <memory>
 #include <unordered_map>
-#include "pxr/base/vt/dictionary.h"
-#include "pxr/base/vt/array.h"
 
 OPENDCC_NAMESPACE_OPEN
 
-class Package;
-class PackageEntryPoint;
-
-struct PackageAttribute
+namespace base::packaging
 {
-    std::string name;
-    PXR_NS::VtValue value;
 
-    bool is_valid() const { return !name.empty(); }
-    operator bool() const { return is_valid(); }
-};
+    class Package;
+    class PackageEntryPoint;
 
-struct PackageSharedData
-{
-    PXR_NS::VtDictionary resolved_attributes;
-    PXR_NS::VtDictionary direct_dependencies;
-    std::string root_dir;
-    std::string name;
-    bool loaded = false;
-
-    template <class T>
-    const T& get_resolved(const std::string& path, const T& default_ = T()) const
+    struct PackageAttribute
     {
-        const auto res = resolved_attributes.GetValueAtPath(path, ".");
-        return res ? res->Get<T>() : default_;
-    }
-    std::string get_resolved(const std::string& path, const char* default_ = "") const { return get_resolved<std::string>(path, default_); }
+        std::string name;
+        std::any value;
 
-    struct LoadedEntity
-    {
-        virtual bool close() = 0;
-        virtual void uninitialize(const Package& package) = 0;
+        bool is_valid() const { return !name.empty(); }
+        operator bool() const { return is_valid(); }
     };
-    std::vector<std::unique_ptr<LoadedEntity>> loaded_entities;
-};
 
-class OPENDCC_PACKAGING_API Package
-{
-public:
-    Package() = default;
-    Package(const std::shared_ptr<PackageSharedData>& data);
-    const std::string& get_name() const;
+    using PackageAttributeList = std::vector<PackageAttribute>;
 
-    const PXR_NS::VtDictionary& get_all_attributes() const;
-    const PXR_NS::VtValue& get_attribute(const std::string& name) const;
-    bool is_loaded() const;
-    const PXR_NS::VtDictionary& get_direct_dependencies() const;
-    const std::string& get_root_dir() const;
+    struct PackageSharedData
+    {
+        PackageAnyDictionary resolved_attributes;
+        PackageAnyDictionary direct_dependencies;
+        std::string root_dir;
+        std::string name;
+        bool loaded = false;
 
-    bool is_valid() const;
-    operator bool() const { return is_valid(); }
+        template <class T>
+        T get_resolved(const std::string& path, const T& default_ = T()) const
+        {
+            const auto res = find_package_attribute(resolved_attributes, path);
+            if (!res)
+                return default_;
+            if (const auto value = std::any_cast<T>(&res->get()))
+                return *value;
+            OPENDCC_WARN("Invalid type for attribute '{}' in package '{}'; using default.", path, name);
+            return default_;
+        }
+        std::string get_resolved(const std::string& path, const char* default_ = "") const { return get_resolved<std::string>(path, default_); }
 
-private:
-    std::shared_ptr<PackageSharedData> m_data;
-};
+        struct LoadedEntity
+        {
+            virtual bool close() = 0;
+            virtual void uninitialize(const Package& package) = 0;
+        };
+        std::vector<std::unique_ptr<LoadedEntity>> loaded_entities;
+    };
+
+    using PackageSharedDataMap = std::unordered_map<std::string, std::shared_ptr<PackageSharedData>>;
+
+    class OPENDCC_BASE_PACKAGING_API Package
+    {
+    public:
+        Package() = default;
+        Package(const std::shared_ptr<PackageSharedData>& data);
+        const std::string& get_name() const;
+
+        const PackageAnyDictionary& get_all_attributes() const;
+        const std::any& get_attribute(const std::string& name) const;
+        bool is_loaded() const;
+        const PackageAnyDictionary& get_direct_dependencies() const;
+        const std::string& get_root_dir() const;
+
+        bool is_valid() const;
+        operator bool() const { return is_valid(); }
+
+    private:
+        std::shared_ptr<PackageSharedData> m_data;
+    };
+
+}
 
 OPENDCC_NAMESPACE_CLOSE

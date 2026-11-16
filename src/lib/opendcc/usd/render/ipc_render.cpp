@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "opendcc/usd/render/ipc_render.h"
+#include "opendcc/base/logging/logger.h"
 
 #include "opendcc/app/viewport/viewport_render_aovs.h"
 #include "opendcc/app/viewport/offscreen_render.h"
@@ -33,8 +34,11 @@
 #include <QOpenGLContext>
 
 OPENDCC_NAMESPACE_OPEN
+OPENDCC_INITIALIZE_LOG_CHANNEL("opendcc.usd.render");
 
 PXR_NAMESPACE_USING_DIRECTIVE
+
+namespace ipc = base::ipc;
 
 #if PXR_VERSION >= 2108
 static CameraUtilFraming compute_camera_framing(const GfRect2i& render_rect, const int w, const int h)
@@ -226,7 +230,7 @@ void IpcRender::send_aovs()
             image_desc.num_channels = HgiGetComponentCount(aov.desc.format);
             image_desc.width = params.render_resolution[0];
             image_desc.height = params.render_resolution[1];
-            image_desc.extra_attributes["opendcc/dcc/pid"] = get_pid_string();
+            image_desc.extra_attributes["opendcc/dcc/pid"] = base::utils::get_pid_string();
 
             image_handle = render_view_open_image(m_render_view_ipc->connection, image_handle, image_desc);
             m_render_view_ipc->image_handles[aov.name] = image_handle;
@@ -280,7 +284,7 @@ render_system::RenderStatus IpcRender::write_aovs()
         const auto file_path = fs::u8path(aov_setting_iter->product_name.GetString());
         if (file_path.empty())
         {
-            TF_RUNTIME_ERROR("Failed to write aov: product name is empty.");
+            OPENDCC_ERROR("Failed to write aov: product name is empty.");
             return render_system::RenderStatus::FAILED;
         }
         const size_t w = aov.desc.dimensions[0];
@@ -307,7 +311,7 @@ render_system::RenderStatus IpcRender::write_aovs()
         const bool result = image && image->Write(storage);
         if (!result)
         {
-            TF_RUNTIME_ERROR("Failed to write aov to %s", file_path.u8string().c_str());
+            OPENDCC_ERROR("Failed to write aov to {}", file_path.u8string().c_str());
             return render_system::RenderStatus::FAILED;
         }
     }
@@ -320,7 +324,7 @@ void IpcRender::create_command_server()
     const auto& config = Application::get_app_config();
 
     m_main_server_info.hostname = "127.0.0.1";
-    m_main_server_info.input_port = config.get<uint32_t>("ipc.command_server.port", 8000);
+    m_main_server_info.input_port = config.get<uint32_t>("ipc.command_server.port", 5558);
 
     ipc::CommandServer::set_server_timeout(config.get<int>("ipc.command_server.server_timeout", 1000));
 
@@ -331,7 +335,7 @@ void IpcRender::create_command_server()
 
     ipc::Command command;
     command.name = "ServerCreated";
-    command.args["pid"] = get_pid_string();
+    command.args["pid"] = base::utils::get_pid_string();
     command.args["hostname"] = info.hostname;
     command.args["input_port"] = std::to_string(info.input_port);
     m_server->send_command(m_main_server_info, command);

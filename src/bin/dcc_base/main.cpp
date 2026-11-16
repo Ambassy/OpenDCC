@@ -39,11 +39,15 @@
 #include <algorithm>
 
 OPENDCC_NAMESPACE_OPEN
-OPENDCC_INITIALIZE_LIBRARY_LOG_CHANNEL("Application");
+OPENDCC_INITIALIZE_LIBRARY_LOG_CHANNEL("opendcc.app");
 OPENDCC_NAMESPACE_CLOSE
 
 OPENDCC_NAMESPACE_USING
 PXR_NAMESPACE_USING_DIRECTIVE
+using OPENDCC_NAMESPACE::base::app_config::ApplicationConfig;
+using OPENDCC_NAMESPACE::base::crash_reporting::CrashHandler;
+using OPENDCC_NAMESPACE::base::crash_reporting::CrashHandlerSession;
+
 static QApplication* s_qapp = nullptr;
 
 QDir get_configs_path()
@@ -291,7 +295,7 @@ int main(int argc, char* argv[])
             return res;
         }
     }
-    Logger::set_log_level(LogLevel::Info);
+    OPENDCC_NAMESPACE::base::logging::Logger::set_log_level(OPENDCC_NAMESPACE::base::logging::LogLevel::Info);
 
     if ((!parser.isSet(script_option) || parser.isSet(gui_option)) && !parser.isSet(shell_option))
     {

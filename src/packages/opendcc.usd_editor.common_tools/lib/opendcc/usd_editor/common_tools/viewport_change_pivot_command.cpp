@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "opendcc/usd_editor/common_tools/viewport_change_pivot_command.h"
+#include "opendcc/base/logging/logger.h"
 #include "opendcc/app/core/application.h"
 #include "opendcc/app/core/session.h"
 #include "opendcc/app/core/undo/router.h"
@@ -11,8 +12,14 @@
 #include "opendcc/base/commands_api/core/command_registry.h"
 
 OPENDCC_NAMESPACE_OPEN
+OPENDCC_INITIALIZE_LOG_CHANNEL(OPENDCC_PACKAGE_NAME);
 
 PXR_NAMESPACE_USING_DIRECTIVE
+
+using base::commands::CommandSyntax;
+using base::commands::Command;
+using base::commands::CommandArgs;
+using base::commands::CommandResult;
 
 std::string ViewportChangePivotCommand::cmd_name = "change_pivot";
 
@@ -147,8 +154,8 @@ void ViewportChangePivotCommand::apply_delta(const GfVec3d& delta_pos, const GfR
                 }
                 else
                 {
-                    TF_WARN("Failed to change pivot on prim '%s': failed to decompose to common API.",
-                            pivot_transform.xform.GetPrim().GetPrimPath().GetText());
+                    OPENDCC_ERROR("Failed to change pivot on prim '{}': failed to decompose to common API.",
+                                  pivot_transform.xform.GetPrim().GetPrimPath().GetText());
                 }
             }
         }

@@ -3,6 +3,7 @@
 
 // workaround
 #include "opendcc/base/qt_python.h"
+#include "opendcc/base/logging/logger.h"
 
 #include "opendcc/app/viewport/viewport_isolate_selection_command.h"
 #include "opendcc/app/viewport/viewport_gl_widget.h"
@@ -11,8 +12,15 @@
 #include "opendcc/app/viewport/viewport_widget.h"
 
 OPENDCC_NAMESPACE_OPEN
+OPENDCC_INITIALIZE_LOG_CHANNEL("opendcc.app.viewport.selection");
 
 PXR_NAMESPACE_USING_DIRECTIVE
+
+using base::commands::UndoCommand;
+using base::commands::CommandRegistry;
+using base::commands::CommandSyntax;
+using base::commands::CommandArgs;
+using base::commands::CommandResult;
 
 TF_REGISTRY_FUNCTION(TfType)
 {
@@ -66,14 +74,14 @@ CommandResult ViewportIsolateSelectionCommand::execute(const CommandArgs& args)
         m_gl_widget = view->get_gl_widget();
         if (!m_gl_widget)
         {
-            TF_WARN("Failed to isolate prims. There is no active viewport widget.");
+            OPENDCC_ERROR("Failed to isolate prims. There is no active viewport widget.");
             return CommandResult();
         }
         m_old_paths = m_gl_widget->get_populated_paths();
     }
     else
     {
-        TF_WARN("Failed to isolate prims. There is no active viewport widget.");
+        OPENDCC_ERROR("Failed to isolate prims. There is no active viewport widget.");
         return CommandResult();
     }
 

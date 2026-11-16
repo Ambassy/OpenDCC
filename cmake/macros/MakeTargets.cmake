@@ -7,6 +7,7 @@ else()
 endif()
 
 function(opendcc_add_package PACKAGE_NAME)
+    set(OPENDCC_CURRENT_PACKAGE_NAME "${PACKAGE_NAME}")
     if(WIN32)
         # Keep Windows build paths short without changing source include roots or install destinations.
         add_subdirectory("${PACKAGE_NAME}" "${CMAKE_BINARY_DIR}/p/${PACKAGE_NAME}")
@@ -95,7 +96,7 @@ function(
 endfunction()
 
 function(opendcc_make_python_module TARGET_NAME)
-    set(options "")
+    set(options NO_BOOST_PYTHON)
     set(one_value_args PYMODULE_NAME VS_FOLDER PYMODULE_INSTALL_DIR PYMODULE_INSTALL_PATH)
     set(multi_value_args PYMODULE_SOURCES LIBRARY_DEPENDENCIES PUBLIC_DEFINITIONS PRIVATE_DEFINITIONS)
 
@@ -117,7 +118,14 @@ function(opendcc_make_python_module TARGET_NAME)
     endif()
 
     target_compile_definitions(${_pymodule_target} PRIVATE PYMODULE_NAME=${args_PYMODULE_NAME})
-    target_link_libraries(${_pymodule_target} PUBLIC pybind11::pybind11 ${Boost_PYTHON_LIBRARY} ${PYTHON_LIBRARY})
+    if(OPENDCC_CURRENT_PACKAGE_NAME)
+        target_compile_definitions(${_pymodule_target} PRIVATE OPENDCC_PACKAGE_NAME="${OPENDCC_CURRENT_PACKAGE_NAME}")
+    endif()
+    if(args_NO_BOOST_PYTHON)
+        target_link_libraries(${_pymodule_target} PUBLIC pybind11::pybind11 Python3::Python)
+    else()
+        target_link_libraries(${_pymodule_target} PUBLIC pybind11::pybind11 ${Boost_PYTHON_LIBRARY} ${PYTHON_LIBRARY})
+    endif()
     target_link_libraries(${TARGET_NAME} PUBLIC ${args_LIBRARY_DEPENDENCIES})
 
     if(args_PUBLIC_DEFINITIONS)
@@ -170,7 +178,7 @@ function(opendcc_make_python_module TARGET_NAME)
 endfunction()
 
 function(opendcc_make_library TARGET_NAME)
-    set(options QT_AUTOMOC)
+    set(options QT_AUTOMOC PYMODULE_NO_BOOST_PYTHON)
     set(one_value_args
         TYPE # static shared plugin
         VS_FOLDER
@@ -207,6 +215,10 @@ function(opendcc_make_library TARGET_NAME)
     endif()
 
     add_library(${TARGET_NAME} ${_library_type} ${args_PUBLIC_HEADERS} ${args_PRIVATE_HEADERS} ${args_CPPFILES})
+
+    if(OPENDCC_CURRENT_PACKAGE_NAME)
+        target_compile_definitions(${TARGET_NAME} PRIVATE OPENDCC_PACKAGE_NAME="${OPENDCC_CURRENT_PACKAGE_NAME}")
+    endif()
 
     if(args_PUBLIC_DEFINITIONS)
         target_compile_definitions(${TARGET_NAME} PUBLIC ${args_PUBLIC_DEFINITIONS})
@@ -296,8 +308,13 @@ function(opendcc_make_library TARGET_NAME)
         install(FILES ${_resource_file} DESTINATION "${_resources_install_path}")
     endforeach()
     if(${_library_type} STREQUAL "SHARED")
+        set(_pymodule_options)
+        if(args_PYMODULE_NO_BOOST_PYTHON)
+            list(APPEND _pymodule_options NO_BOOST_PYTHON)
+        endif()
         opendcc_make_python_module(
             ${TARGET_NAME}_py
+            ${_pymodule_options}
             PYMODULE_NAME
             ${args_PYMODULE_NAME}
             PYMODULE_SOURCES

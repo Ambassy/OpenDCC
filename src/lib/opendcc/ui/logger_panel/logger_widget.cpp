@@ -7,7 +7,10 @@
 #include <opendcc/base/logging/logging_utils.h>
 
 OPENDCC_NAMESPACE_OPEN
-OPENDCC_INITIALIZE_LIBRARY_LOG_CHANNEL("Application");
+OPENDCC_INITIALIZE_LIBRARY_LOG_CHANNEL("opendcc.ui.logger_panel");
+
+using base::logging::LogLevel;
+namespace logging = base::logging;
 
 LoggerWidget::LoggerWidget(MessageModel* model, QWidget* parent /* = nullptr */)
     : QWidget(parent)
@@ -98,7 +101,7 @@ QVariant MessageModel::data(const QModelIndex& index, int role /*= Qt::DisplayRo
         case 0:
             return m_messages[row].channel;
         case 1:
-            return QString::fromStdString(log_level_to_str(m_messages[row].log_level));
+            return QString::fromStdString(logging::log_level_to_str(m_messages[row].log_level));
         case 2:
             return m_messages[row].message.simplified();
         }
@@ -114,7 +117,7 @@ QVariant MessageModel::data(const QModelIndex& index, int role /*= Qt::DisplayRo
         case 0:
             return m_messages[row].channel;
         case 1:
-            return QString::fromStdString(log_level_to_str(m_messages[row].log_level));
+            return QString::fromStdString(logging::log_level_to_str(m_messages[row].log_level));
         case 2:
             return m_messages[row].message.simplified();
         }

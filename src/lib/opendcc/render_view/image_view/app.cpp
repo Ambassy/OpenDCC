@@ -44,6 +44,8 @@
 
 OPENDCC_NAMESPACE_OPEN
 
+namespace ipc = base::ipc;
+
 static int clamp(int lower, int n, int upper)
 {
     return std::max(lower, std::min(n, upper));
@@ -89,7 +91,8 @@ private:
     RenderViewMainWindow* m_app;
 };
 
-RenderViewMainWindow::RenderViewMainWindow(RenderViewPreferences&& preferences, const ApplicationConfig& config /* = ApplicationConfig() */)
+RenderViewMainWindow::RenderViewMainWindow(RenderViewPreferences&& preferences,
+                                           const base::app_config::ApplicationConfig& config /* = ApplicationConfig() */)
     : m_prefs(std::move(preferences))
     , m_app_config(config)
 {
@@ -149,13 +152,13 @@ RenderViewMainWindow::RenderViewMainWindow(RenderViewPreferences&& preferences, 
     info = m_server->get_info();
 
     m_main_server_info.hostname = "127.0.0.1";
-    m_main_server_info.input_port = m_app_config.get<uint32_t>("ipc.command_server.port", 8000);
+    m_main_server_info.input_port = m_app_config.get<uint32_t>("ipc.command_server.port", 5558);
 
     ipc::CommandServer::set_server_timeout(m_app_config.get<int>("ipc.command_server.server_timeout", 1000));
 
     ipc::Command command;
     command.name = "ServerCreated";
-    command.args["pid"] = get_pid_string();
+    command.args["pid"] = base::utils::get_pid_string();
     command.args["hostname"] = info.hostname;
     command.args["input_port"] = std::to_string(info.input_port);
     m_server->send_command(m_main_server_info, command);

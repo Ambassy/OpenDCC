@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <pxr/pxr.h>
+#include "opendcc/base/logging/logger.h"
 #if PXR_VERSION < 2108
 #include <GL/glew.h>
 #include <pxr/imaging/glf/glew.h>
@@ -53,6 +54,7 @@
 #endif
 
 OPENDCC_NAMESPACE_OPEN
+OPENDCC_INITIALIZE_LOG_CHANNEL("opendcc.app.viewport");
 
 PXR_NAMESPACE_USING_DIRECTIVE
 
@@ -226,6 +228,8 @@ void ViewportGLWidget::paintGL()
     if (!m_engine_enabled)
         return;
 
+    // Qt's composition can leave depth writes disabled; glClear respects the depth mask.
+    glDepthMask(GL_TRUE);
     m_background_drawer->draw();
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_MULTISAMPLE);
@@ -394,6 +398,11 @@ std::pair<PXR_NS::HdxPickHitVector, bool> ViewportGLWidget::intersect_impl(const
 
     makeCurrent();
 
+    // Qt composition can disable depth writes, including the picking buffer's depth clear.
+    GLboolean depth_mask;
+    glGetBooleanv(GL_DEPTH_WRITEMASK, &depth_mask);
+    glDepthMask(GL_TRUE);
+
     ViewportHydraIntersectionParams pick_params;
     pick_params.engine_params = m_params;
     pick_params.engine_params.gamma_correct_colors = false;
@@ -453,6 +462,7 @@ std::pair<PXR_NS::HdxPickHitVector, bool> ViewportGLWidget::intersect_impl(const
     HdxPickHitVector out;
     const auto pick_result = get_engine()->test_intersection_batch(pick_params, out);
 
+    glDepthMask(depth_mask);
     doneCurrent();
 
     return { std::move(out), pick_result };
@@ -1394,7 +1404,7 @@ bool ViewportGLWidget::is_display_purpose_enabled(ViewportHydraDisplayPurpose di
     case ViewportHydraDisplayPurpose::DISPLAY_PURPOSE_RENDER:
         return m_params.show_render;
     default:
-        TF_RUNTIME_ERROR("Unknown display purpose option.");
+        OPENDCC_ERROR("Unknown display purpose option.");
         return false;
     }
 }

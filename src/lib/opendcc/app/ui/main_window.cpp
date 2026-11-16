@@ -62,20 +62,23 @@
 #include <string>
 
 OPENDCC_NAMESPACE_OPEN
+OPENDCC_INITIALIZE_LOG_CHANNEL("opendcc.app.ui");
 
 PXR_NAMESPACE_USING_DIRECTIVE
+using base::logging::LogLevel;
+
 namespace
 {
-    class StatusBarLoggingDelegate : public LoggingDelegate
+    class StatusBarLoggingDelegate : public base::logging::LoggingDelegate
     {
     public:
         StatusBarLoggingDelegate(MainWindow* window)
             : m_window(window)
         {
-            Logger::add_logging_delegate(this);
+            base::logging::Logger::add_logging_delegate(this);
         }
 
-        void log(const MessageContext& context, const std::string& message) override
+        void log(const base::logging::MessageContext& context, const std::string& message) override
         {
             if (m_window)
             {
@@ -138,7 +141,7 @@ MainWindow::MainWindow()
 
     connect(this, &MainWindow::send_message, this, [this, status_bar_label](QString channel, LogLevel log_level, QString msg) {
         const auto metrics = status_bar_label->fontMetrics();
-        const auto log_level_name = QString::fromStdString(log_level_to_str(log_level));
+        const auto log_level_name = QString::fromStdString(base::logging::log_level_to_str(log_level));
         const auto elided_msg =
             metrics.elidedText(msg, Qt::TextElideMode::ElideRight,
                                (status_bar_label->width() - metrics.horizontalAdvance(log_level_name + "  ")) * status_bar_label->devicePixelRatio());
@@ -336,7 +339,7 @@ void MainWindow::arrange_splitters(ads::CDockWidget* dock_widget, const std::vec
 {
     if (!dock_widget)
     {
-        OPENDCC_WARN_CHANNEL("Application", "Cannot arrange splitters: dock widget is null.");
+        OPENDCC_WARN("Cannot arrange splitters: dock widget is null.");
         return;
     }
 
@@ -345,7 +348,7 @@ void MainWindow::arrange_splitters(ads::CDockWidget* dock_widget, const std::vec
     auto dock_area = dock_widget->dockAreaWidget();
     if (!dock_area)
     {
-        OPENDCC_WARN_CHANNEL("Application", "Cannot arrange splitters: dock widget '{}' has no dock area.", dock_widget->objectName().toStdString());
+        OPENDCC_WARN("Cannot arrange splitters: dock widget '{}' has no dock area.", dock_widget->objectName().toStdString());
         return;
     }
     QList<int> sizes = m_main_container_widget->splitterSizes(dock_area);
@@ -391,12 +394,12 @@ void MainWindow::close_panels()
     for (auto widget : m_main_container_widget->floatingWidgets())
     {
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-        // ADS 3.x clears AutoHideChildren before hiding, so the dock widgets still inside are not
-        // toggled closed. ADS 4.x (Qt6) dropped the method; skip the hide() there rather than fire
-        // those toggles, since the container is being destroyed anyway.
         widget->hideAndDeleteLater();
 #else
-        widget->deleteLater();
+        // Deleting the floating window directly leaves its dock widgets in the manager's map.
+        for (auto dock_widget : widget->dockWidgets())
+            dock_widget->deleteDockWidget();
+        widget->finishDropOperation();
 #endif
     }
 }
@@ -422,12 +425,12 @@ void MainWindow::load_layout(const std::string& path)
     for (auto widget : m_main_container_widget->floatingWidgets())
     {
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-        // ADS 3.x clears AutoHideChildren before hiding, so the dock widgets still inside are not
-        // toggled closed. ADS 4.x (Qt6) dropped the method; skip the hide() there rather than fire
-        // those toggles, since the container is being destroyed anyway.
         widget->hideAndDeleteLater();
 #else
-        widget->deleteLater();
+        // Deleting the floating window directly leaves its dock widgets in the manager's map.
+        for (auto dock_widget : widget->dockWidgets())
+            dock_widget->deleteDockWidget();
+        widget->finishDropOperation();
 #endif
     }
 

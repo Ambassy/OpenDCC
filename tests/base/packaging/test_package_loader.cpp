@@ -6,7 +6,6 @@
 #include "opendcc/base/packaging/package_resolver.h"
 #include <filesystem>
 #include "opendcc/base/utils/library.h"
-#include <pxr/base/vt/array.h>
 #include <cstdio>
 #ifdef OPENDCC_OS_WINDOWS
 #include <Windows.h>
@@ -18,7 +17,13 @@
 #define DOCTEST_CONFIG_IMPLEMENTATION_IN_DLL
 #include <doctest/doctest.h>
 OPENDCC_NAMESPACE_OPEN
-PXR_NAMESPACE_USING_DIRECTIVE
+
+using base::packaging::PackageSharedData;
+using base::packaging::PackageAnyDictionary;
+namespace packaging = base::packaging;
+using base::packaging::PackageAnyArray;
+using base::packaging::PackageResolver;
+using base::packaging::PackageLoader;
 
 using namespace pybind11;
 
@@ -29,14 +34,14 @@ DOCTEST_TEST_SUITE("PackagingPackageLoader")
         char tmp_dir_str[1024] = {};
         tmpnam(tmp_dir_str);
         DOCTEST_CHECK(std::filesystem::create_directory(tmp_dir_str));
-        auto tests_a_dll_hndl = dl_open("packaging_tests_a.dll", DONT_RESOLVE_DLL_REFERENCES);
-        auto tests_b_dll_hndl = dl_open("packaging_tests_b.dll", DONT_RESOLVE_DLL_REFERENCES);
+        auto tests_a_dll_hndl = base::utils::dl_open("packaging_tests_a.dll", DONT_RESOLVE_DLL_REFERENCES);
+        auto tests_b_dll_hndl = base::utils::dl_open("packaging_tests_b.dll", DONT_RESOLVE_DLL_REFERENCES);
         char dll_path_a[512];
         char dll_path_b[512];
         GetModuleFileName(static_cast<HMODULE>(tests_a_dll_hndl), dll_path_a, sizeof(dll_path_a));
         GetModuleFileName(static_cast<HMODULE>(tests_b_dll_hndl), dll_path_b, sizeof(dll_path_b));
-        dl_close(tests_a_dll_hndl);
-        dl_close(tests_b_dll_hndl);
+        base::utils::dl_close(tests_a_dll_hndl);
+        base::utils::dl_close(tests_b_dll_hndl);
 
         auto tmp_dir = std::filesystem::path(tmp_dir_str);
         auto tmp_path = tmp_dir / "packaging_tests_a.dll";
@@ -54,24 +59,22 @@ DOCTEST_TEST_SUITE("PackagingPackageLoader")
         test_package_data->name = "test_name";
         test_package_data->loaded = false;
         test_package_data->root_dir = tmp_dir.lexically_normal().generic_u8string();
-        VtDictionary dict;
-        dict.SetValueAtPath("base.name", VtValue("test_name"), ".");
-        dict.SetValueAtPath("base.unloadable", VtValue(true), ".");
-        dict.SetValueAtPath("native.entry_point",
-                            VtValue(VtArray<VtDictionary>({
-                                VtDictionary({ { "path", VtValue("packaging_tests_a.dll") } }),
-                                VtDictionary({ { "path", VtValue("packaging_tests_b.dll") } }),
-                            })),
-                            ".");
-        dict.SetValueAtPath("python.entry_point",
-                            VtValue(VtArray<VtDictionary>({
-                                VtDictionary({ { "module", VtValue("packaging_tests.a") } }),
-                                VtDictionary({ { "module", VtValue("packaging_tests.b") } }),
-                            })),
-                            ".");
+        PackageAnyDictionary dict;
+        DOCTEST_REQUIRE(packaging::set_package_attribute(dict, "base.name", std::any(std::string("test_name"))));
+        DOCTEST_REQUIRE(packaging::set_package_attribute(dict, "base.unloadable", std::any(true)));
+        DOCTEST_REQUIRE(packaging::set_package_attribute(dict, "native.entry_point",
+                                                         std::any(PackageAnyArray({
+                                                             PackageAnyDictionary({ { "path", std::any(std::string("packaging_tests_a.dll")) } }),
+                                                             PackageAnyDictionary({ { "path", std::any(std::string("packaging_tests_b.dll")) } }),
+                                                         }))));
+        DOCTEST_REQUIRE(packaging::set_package_attribute(dict, "python.entry_point",
+                                                         std::any(PackageAnyArray({
+                                                             PackageAnyDictionary({ { "module", std::any(std::string("packaging_tests.a")) } }),
+                                                             PackageAnyDictionary({ { "module", std::any(std::string("packaging_tests.b")) } }),
+                                                         }))));
 
         test_package_data->resolved_attributes = dict;
-        test_package_data->direct_dependencies = VtDictionary();
+        test_package_data->direct_dependencies = PackageAnyDictionary();
         pkg_shared_data[test_package_data->name] = test_package_data;
         auto package_resolver = std::make_shared<PackageResolver>();
         auto package_loader = std::make_shared<PackageLoader>(package_resolver, pkg_shared_data);
@@ -82,8 +85,8 @@ DOCTEST_TEST_SUITE("PackagingPackageLoader")
 
             auto hndl1 = GetModuleHandle("packaging_tests_a");
             auto hndl2 = GetModuleHandle("packaging_tests_b");
-            int* entry_point_checker1 = reinterpret_cast<int*>(dl_sym(hndl1, "s_entry_point_checker"));
-            int* entry_point_checker2 = reinterpret_cast<int*>(dl_sym(hndl2, "s_entry_point_checker"));
+            int* entry_point_checker1 = reinterpret_cast<int*>(base::utils::dl_sym(hndl1, "s_entry_point_checker"));
+            int* entry_point_checker2 = reinterpret_cast<int*>(base::utils::dl_sym(hndl2, "s_entry_point_checker"));
             // Check C++ entry points
             DOCTEST_CHECK(*entry_point_checker1 == 1); // Initialized after load
             DOCTEST_CHECK(*entry_point_checker2 == 1);
